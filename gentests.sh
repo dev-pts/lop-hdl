@@ -2,5 +2,5 @@
 
 for i in tests/*.lop; do
 	f=$(dirname $i)/$(basename $i .lop)
-	python3 main.py test $f.lop > $f.v || exit
+	python3 main.py gen-verilog test $f.lop > $f.v || exit
 done

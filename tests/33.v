@@ -22,9 +22,9 @@ module test(
 	reg _auto_c_1__a__a;
 	assign c_1__a__a = _auto_c_1__a__a;
 	reg [3:0] _auto_f_0;
-	assign f = _auto_f_0;
+	assign f_0 = _auto_f_0;
 	reg [3:0] _auto_f_1;
-	assign f = _auto_f_1;
+	assign f_1 = _auto_f_1;
 
 	SubModule d(
 		.a(a)

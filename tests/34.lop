@@ -1,0 +1,16 @@
+interface: Intf
+	port: Master
+		a: net: in
+		b: net: out
+		c: net: inout
+
+module: test
+	port:
+		a: in
+		b: out
+		c: inout
+		d[2]: in
+		e[3]: out
+		f[4]: inout
+		g: Intf.Master
+		h[5]: Intf.Master

@@ -1,7 +1,9 @@
-import sys
-import LOP
+import argparse
 import ctypes
 import re
+import sys
+
+import LOP
 
 class Error(Exception):
 	def __init__(self, message, ast):
@@ -464,6 +466,21 @@ class InterfaceInstance:
 
 		return ret
 
+	def get_port_name(self, name, filt, shape=(None, None)):
+		ret = []
+		count, _ = shape
+
+		for i in self.inst.port:
+			if count:
+				if count.to_int() == 0:
+					raise Exception()
+				if count.to_int() > 1:
+					for j in range(count.to_int()):
+						ret.extend(i.resolve().get_port_name(f'{name}_{j}__{i.name}', filt))
+			else:
+				ret.extend(i.resolve().get_port_name(f'{name}__{i.name}', filt))
+		return ret
+
 	def to_verilog_hier(self, namespace, field):
 		return f'{namespace.to_verilog()}__{field.name}'
 
@@ -638,6 +655,12 @@ class Module:
 		ret += 'endmodule\n'
 		return ret
 
+	def get_all_ports(self, filt=['input', 'output', 'inout']):
+		ret = []
+		for i in self.port:
+			ret.extend(i.value.get_port_name(i.name, filt))
+		return '\n'.join(ret)
+
 @for_all_methods(wrap)
 class Port:
 	def __init__(self, ast):
@@ -690,10 +713,24 @@ class Port:
 		if count and count.to_int() > 1:
 			for i in range(count.to_int()):
 				ret += self._to_verilog_one('reg ', f'_auto_{name}', width, i) + ';\n'
-				ret += f'assign {name} = _auto_{name}_{i};\n'
+				ret += f'assign {name}_{i} = _auto_{name}_{i};\n'
 		else:
 			ret += self._to_verilog_one('reg ', f'_auto_{name}', width, None) + ';\n'
 			ret += f'assign {name} = _auto_{name};\n'
+		return ret
+
+	def get_port_name(self, name, filt, shape=(None, None)):
+		if self.dir not in filt:
+			return []
+
+		count, width = shape
+
+		ret = []
+		if count and count.to_int() > 1:
+			for i in range(count.to_int()):
+				ret.append(f'{name}_{i}')
+		else:
+			ret.append(name)
 		return ret
 
 	def _to_verilog_one(self, prefix, name, width, idx):
@@ -916,6 +953,9 @@ class Array:
 
 	def get_inouts(self, name):
 		return self.value.get_inouts(name, self.shape)
+
+	def get_port_name(self, name, filt):
+		return self.value.get_port_name(name, filt, self.shape)
 
 	def to_verilog(self, name):
 		return self.value.to_verilog(name, self.shape)
@@ -3461,8 +3501,14 @@ schema.filename = LOP.String('schema.lop'.encode())
 
 rc = LOP.LOP_schema_init(schema, schema_str, len(schema_str))
 
-topname = sys.argv[1]
-filename = sys.argv[2]
+parser = argparse.ArgumentParser()
+parser.add_argument('cmd')
+parser.add_argument('topname')
+parser.add_argument('filename')
+args = parser.parse_args()
+
+topname = args.topname
+filename = args.filename
 
 if rc != 0:
 	sys.exit(rc)
@@ -3507,12 +3553,19 @@ try:
 	top = SCOPE.lookup(topname).value
 	# 1. Constant folding & propagation & bound checking, for-loops unrolling
 	top = top.compile()
-	# 2. Convert to verilog top and dependant modules
-	topv = top.to_verilog(topname)
-	# 3. Dump them all
-	for p in Formatter.page:
-		print(Formatter.page[p].to_verilog(p))
-	print(topv)
+	if args.cmd == 'gen-verilog':
+		# 2. Convert to verilog top and dependant modules
+		topv = top.to_verilog(topname)
+		# 3. Dump them all
+		for p in Formatter.page:
+			print(Formatter.page[p].to_verilog(p))
+		print(topv)
+	elif args.cmd == 'get-all-ports':
+		print(top.get_all_ports())
+	elif args.cmd == 'get-in-ports':
+		print(top.get_all_ports(['input', 'inout']))
+	else:
+		raise Exception()
 except Error as e:
 	fatal(e, src)
 
