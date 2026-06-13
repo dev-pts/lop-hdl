@@ -1,0 +1,7 @@
+module: test:
+		A = 1
+	port:
+		a: in
+		b: out
+		c: inout
+	local:

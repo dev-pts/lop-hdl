@@ -1,0 +1,4 @@
+module: test
+	local:
+		k: net[2] = 1
+		j: net = 1

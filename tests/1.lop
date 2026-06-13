@@ -1,0 +1,3 @@
+module: test
+external: ext
+interface: intf

@@ -1,0 +1,6 @@
+module: test:
+		A = 1
+external: ext:
+		A = 2
+interface: intf:
+		A = 3

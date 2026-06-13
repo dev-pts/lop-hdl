@@ -1,0 +1,11 @@
+module: test
+	local:
+		c: SubModule
+
+	for: i
+		c.y[i] = 1
+
+module: SubModule:
+		Z = 3
+	port:
+		y: in[Z]
