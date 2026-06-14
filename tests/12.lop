@@ -1,8 +1,9 @@
 module: test:
 		B = A * 8
 		A = 2
-	local:
+	submodule:
 		b: SubModule
+	local:
 		k: net[2]
 
 	k[0] = 2

@@ -19,7 +19,7 @@ module: test
 		c[2]: Interface.Slave
 		k: out
 		l[2]: out[3]
-	local:
+	submodule:
 		d: SubModule
 		e[2]: SubModule
 

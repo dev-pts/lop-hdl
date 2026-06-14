@@ -17,7 +17,7 @@ module: test
 		c[2]: Intf2.Master
 		e: out
 		f[2]: inout[4]
-	local:
+	submodule:
 		d: SubModule
 
 	$bind(d.a, a)

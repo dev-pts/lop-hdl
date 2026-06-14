@@ -2831,6 +2831,14 @@ module:
 				listof: #optional
 					$regs_decl: @module_add_local
 			tree:
+				identifier: 'fsm'
+				listof: #optional
+					$fsm_decl: @module_add_local
+			tree:
+				identifier: 'submodule'
+				listof: #optional
+					$instance_decl: @module_add_local
+			tree:
 				identifier: 'initial'
 				listof: #optional
 					$statement: @module_add_initial
@@ -2928,8 +2936,6 @@ local:
 				$net_simple: @net_create, @array_set_value
 				$net_with_width: @net_create, @array_set_value
 				$net_with_value: @net_create, @array_set_value
-				$fsm: @array_set_value
-				$instance: @array_set_value
 		tree: @symbol_set_value
 			aref:
 				identifier: @symbol_set_name
@@ -2937,13 +2943,24 @@ local:
 			oneof:
 				$net_simple: @net_create, @array_set_value
 				$net_with_width: @net_create, @array_set_value
-				$fsm: @array_set_value
-				$instance: @array_set_value
 """)
 class ParseLocal:
 	pass
 
 @parser("""
+instance_decl:
+	oneof: @symbol_create
+		tree: @symbol_set_value
+			identifier: @symbol_set_name
+			oneof: @array_create
+				$instance: @array_set_value
+		tree: @symbol_set_value
+			aref:
+				identifier: @symbol_set_name
+				$expr: @array_create, @array_set_count
+			oneof:
+				$instance: @array_set_value
+
 instance:
 	oneof: @instance_create
 		identifier: @instance_set_name
@@ -2999,13 +3016,22 @@ class ParseNet:
 			stack.last.set_value(i)
 
 @parser("""
+fsm_decl:
+	oneof: @symbol_create
+		tree: @symbol_set_value
+			identifier: @symbol_set_name
+			oneof: @array_create
+				$fsm: @array_set_value
+		tree: @symbol_set_value
+			aref:
+				identifier: @symbol_set_name
+				$expr: @array_create, @array_set_count
+			oneof:
+				$fsm: @array_set_value
+
 fsm:
-	seqof: @fsm_create
-		unary:
-			operator: '$'
-			identifier: 'FSM'
-		listof:
-			identifier: @fsm_add_state
+	listof: @fsm_create
+		identifier: @fsm_add_state
 """)
 class ParseFSM:
 	def fsm_create(stack, ast, delta):

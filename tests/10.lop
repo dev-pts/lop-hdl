@@ -4,13 +4,15 @@ module: test:
 	port:
 		a: inout
 	local:
-		b: SubModule
 		c: net
-		d: $FSM
+	submodule:
+		b: SubModule
+	fsm:
+		d:
 			A
 			B
 			C
-		f[2]: $FSM
+		f[2]:
 			A
 			B
 			C

@@ -1,8 +1,9 @@
 module: test:
 		B = A * 8
 		A = 2
-	local:
+	submodule:
 		b[2]: SubModule
+	local:
 		k[3]: net[2]
 
 	$bind(b[0].p, k[0][1])

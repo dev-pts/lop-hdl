@@ -19,7 +19,7 @@ module: test
 	port:
 		a: Interface2.Master
 		b: Interface2.Slave
-	local:
+	submodule:
 		c: SubModule
 		d[2]: SubModule
 
