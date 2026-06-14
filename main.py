@@ -476,9 +476,9 @@ class InterfaceInstance:
 					raise Exception()
 				if count.to_int() > 1:
 					for j in range(count.to_int()):
-						ret.extend(i.resolve().get_port_name(f'{name}_{j}__{i.name}', filt))
+						ret.extend(i.resolve().get_port_name(f'{name}[{j}].{i.name}', filt))
 			else:
-				ret.extend(i.resolve().get_port_name(f'{name}__{i.name}', filt))
+				ret.extend(i.resolve().get_port_name(f'{name}.{i.name}', filt))
 		return ret
 
 	def to_verilog_hier(self, namespace, field):
@@ -728,7 +728,7 @@ class Port:
 		ret = []
 		if count and count.to_int() > 1:
 			for i in range(count.to_int()):
-				ret.append(f'{name}_{i}')
+				ret.append(f'{name}[{i}]')
 		else:
 			ret.append(name)
 		return ret
