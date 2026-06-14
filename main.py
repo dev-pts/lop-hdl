@@ -872,11 +872,25 @@ class FSM:
 	def dim(self):
 		return (Number(self.ast, len(self.state)),)
 
+	def _get_idx(self, field):
+		return 1 << self.state[field]
+
 	def goto(self, src):
+		blk = Block(src.ast)
+
 		ret = Assign(src.ast)
 		ret.set_lhs(src.namespace)
-		ret.set_rhs(Number(src.ast, 1 << self.state[src.field.name]))
-		return ret.compile()
+		ret.set_rhs(Number(src.ast, self._get_idx(src.field.name)))
+
+		blk.add(ret)
+
+		ret = Assign(src.ast)
+		ret.set_lhs(Hier(src.ast).set_namespace(src.namespace).set_field(Identifier(src.ast, f'#{src.field.name}')))
+		ret.set_rhs(String(src.ast, src.field.name))
+
+		blk.add(ret)
+
+		return blk.compile()
 
 	def resolve(self):
 		return self
@@ -897,9 +911,19 @@ class FSM:
 		if dim[0] and dim[0].to_int() > 1:
 			ret += f' [{dim[0].to_int() - 1}:0]'
 		ret += ';\n'
+
+		ret += 'reg '
+		ret += f'[{max([len(i) for i in self.state])} * 8 - 1:0] '
+		ret += f'{name}_str'
+		if dim[0] and dim[0].to_int() > 1:
+			ret += f' [{dim[0].to_int() - 1}:0]'
+		ret += ';\n'
+
 		return ret
 
 	def to_verilog_hier(self, namespace, field):
+		if '#' in field.name:
+			return f'{namespace.to_verilog()}_str'
 		return f'{namespace.to_verilog()}[{self.state[field.name]}]'
 
 	def to_verilog_slice(self, name, dim=(None, None), count=(None, None)):
