@@ -914,7 +914,7 @@ class FSM:
 
 		ret += 'reg '
 		ret += f'[{max([len(i) for i in self.state])} * 8 - 1:0] '
-		ret += f'{name}_str'
+		ret += f'str_{name}'
 		if dim[0] and dim[0].to_int() > 1:
 			ret += f' [{dim[0].to_int() - 1}:0]'
 		ret += ';\n'
@@ -923,7 +923,7 @@ class FSM:
 
 	def to_verilog_hier(self, namespace, field):
 		if '#' in field.name:
-			return f'{namespace.to_verilog()}_str'
+			return f'str_{namespace.to_verilog()}'
 		return f'{namespace.to_verilog()}[{self.state[field.name]}]'
 
 	def to_verilog_slice(self, name, dim=(None, None), count=(None, None)):
