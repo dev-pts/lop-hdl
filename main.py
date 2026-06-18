@@ -1,5 +1,6 @@
 import argparse
 import ctypes
+import math
 import re
 import sys
 
@@ -1150,6 +1151,36 @@ system['bind'] = sh_bind
 system['connect'] = sh_connect
 system['number'] = sh_number
 
+# math.ceil() here is needed, because usually we want it to fit into our desired max number
+def sh_clog2(ast, args):
+	return Number(ast, int(math.ceil(math.log2(args[0].to_int()))))
+
+def sh_int(ast, args):
+	return Number(ast, int(args[0].to_int()))
+
+def sh_round(ast, args):
+	return Number(ast, round(args[0].to_int()))
+
+def sh_floor(ast, args):
+	return Number(ast, int(math.floor(args[0].to_int())))
+
+def sh_ceil(ast, args):
+	return Number(ast, int(math.ceil(args[0].to_int())))
+
+def sh_max(ast, args):
+	return Number(ast, max(args[0].to_int(), args[1].to_int()))
+
+def sh_min(ast, args):
+	return Number(ast, min(args[0].to_int(), args[1].to_int()))
+
+system['clog2'] = sh_clog2
+system['int'] = sh_int
+system['round'] = sh_round
+system['floor'] = sh_floor
+system['ceil'] = sh_ceil
+system['max'] = sh_max
+system['min'] = sh_min
+
 def sh_regaddr(ast, args):
 	return args[0].resolve().get_addr()
 
@@ -1411,9 +1442,9 @@ class Number:
 
 		if op2 == None:
 			if op == '-':
-				return Number(self.ast, -op1)
+				return Number(self.ast, str(-op1))
 			if op == '+':
-				return Number(self.ast, op1)
+				return Number(self.ast, str(op1))
 			if op == '~':
 				return Number(self.ast, ~op1)
 			if op == '!':
@@ -1426,21 +1457,21 @@ class Number:
 		op2 = op2.to_int()
 
 		if op == '+':
-			return Number(self.ast, op1 + op2)
+			return Number(self.ast, str(op1 + op2))
 		if op == '-':
-			return Number(self.ast, op1 - op2)
+			return Number(self.ast, str(op1 - op2))
 		if op == '<':
 			return Number(self.ast, op1 < op2)
 		if op == '>':
 			return Number(self.ast, op1 > op2)
 		if op == '*':
-			return Number(self.ast, op1 * op2)
+			return Number(self.ast, str(op1 * op2))
 		if op == '>>':
 			return Number(self.ast, op1 >> op2)
 		if op == '<<':
 			return Number(self.ast, op1 << op2)
 		if op == '/':
-			return Number(self.ast, op1 / op2)
+			return Number(self.ast, str(op1 / op2))
 		if op == '%':
 			return Number(self.ast, op1 % op2)
 		if op == '==':
@@ -1448,7 +1479,7 @@ class Number:
 		if op == '!=':
 			return Number(self.ast, 1 if op1 != op2 else 0)
 		if op == '**':
-			return Number(self.ast, op1 ** op2)
+			return Number(self.ast, str(op1 ** op2))
 		if op == '|':
 			return Number(self.ast, op1 | op2)
 		if op == '&':
