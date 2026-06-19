@@ -2031,6 +2031,24 @@ class Range:
 		self.lo = i
 		return self
 
+	def set_hi_bin(self, i):
+		ret = Binary(self.ast)
+		ret.set_op(Operator(self.ast, '+'))
+		ret.set_op1(self.lo)
+		ret.set_op2(i)
+
+		self.hi = ret
+		return self
+
+	def set_lo_bin(self, i):
+		ret = Binary(self.ast)
+		ret.set_op(Operator(self.ast, '-'))
+		ret.set_op1(self.hi)
+		ret.set_op2(i)
+
+		self.lo = ret
+		return self
+
 	def compile(self):
 		ret = Range(self.ast)
 		ret.set_hi(self.hi.compile())
@@ -2148,12 +2166,10 @@ class Slice:
 
 		hi = lo = None
 		if type(hilo) == Range:
-			if type(hilo.hi) == Number and type(hilo.lo) == Number:
-				hi = hilo.hi.to_int()
-				lo = hilo.lo.to_int()
-		else:
-			if type(hilo) == Number:
-				hi = lo = hilo.to_int()
+			hi = hilo.hi.to_int()
+			lo = hilo.lo.to_int()
+		elif type(hilo) == Number:
+			hi = lo = hilo.to_int()
 
 		if hi != None:
 			ret = value.slice(hi, lo)
@@ -3523,6 +3539,14 @@ slice:
 				operator: '..'
 				$expr: @range_set_hi
 				$expr: @range_set_lo
+			binary: @range_create
+				operator: '+..'
+				$expr: @range_set_lo
+				$expr: @range_set_hi_bin
+			binary: @range_create
+				operator: '-..'
+				$expr: @range_set_hi
+				$expr: @range_set_lo_bin
 			$expr
 """)
 class ParseSlice:
@@ -3553,6 +3577,16 @@ class ParseSlice:
 		if delta < 0:
 			i = stack.pop()
 			stack.last.set_lo(i)
+
+	def range_set_hi_bin(stack, ast, delta):
+		if delta < 0:
+			i = stack.pop()
+			stack.last.set_hi_bin(i)
+
+	def range_set_lo_bin(stack, ast, delta):
+		if delta < 0:
+			i = stack.pop()
+			stack.last.set_lo_bin(i)
 
 class Stack:
 	def __init__(self):
