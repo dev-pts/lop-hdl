@@ -2311,7 +2311,7 @@ class Instance:
 		if type(m) == Module:
 			for i in self.param.scope:
 				mname += f'_{i}_{m.scope.lookup(i).value.to_verilog()}'
-			mname = mname.translate(str.maketrans(".-", "_n"))
+			mname = re.sub('[\W]', '', mname)
 
 		param = {}
 		if type(m) == External:
