@@ -2325,7 +2325,7 @@ class Instance:
 			ret += self._to_verilog_one(mname, name, param)
 
 		if type(m) == Module:
-			Formatter.page[mname] = m
+			Formatter.page[mname] = m.to_verilog(mname)
 
 		return ret
 
@@ -3673,7 +3673,7 @@ try:
 		topv = top.to_verilog(topname)
 		# 3. Dump them all
 		for p in Formatter.page:
-			print(Formatter.page[p].to_verilog(p))
+			print(Formatter.page[p])
 		print(topv)
 	elif args.cmd == 'get-all-ports':
 		print(top.get_all_ports())
