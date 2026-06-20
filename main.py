@@ -2194,7 +2194,7 @@ class Slice:
 				raise OutOfBounds('', self.ast.contents)
 
 			if hi == lo:
-				hilo.value = hi
+				hilo = Number(hilo.ast, hi)
 			else:
 				hilo.hi.value = hi
 				hilo.lo.value = lo

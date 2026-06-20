@@ -1,0 +1,5 @@
+module: test
+	local:
+		a: net[2]
+		b: net[3]
+	a[-1 .. 1] = b[-1 .. 1]
