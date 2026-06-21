@@ -2037,7 +2037,12 @@ class Range:
 		ret.set_op1(self.lo)
 		ret.set_op2(i)
 
-		self.hi = ret
+		ret2 = Binary(self.ast)
+		ret2.set_op(Operator(self.ast, '-'))
+		ret2.set_op1(ret)
+		ret2.set_op2(Number(self.ast, 1))
+
+		self.hi = ret2
 		return self
 
 	def set_lo_bin(self, i):
@@ -2046,7 +2051,12 @@ class Range:
 		ret.set_op1(self.hi)
 		ret.set_op2(i)
 
-		self.lo = ret
+		ret2 = Binary(self.ast)
+		ret2.set_op(Operator(self.ast, '+'))
+		ret2.set_op1(ret)
+		ret2.set_op2(Number(self.ast, 1))
+
+		self.lo = ret2
 		return self
 
 	def compile(self):
