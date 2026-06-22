@@ -1,3 +1,4 @@
 module: test
 external: ext
 interface: intf
+registers: regs

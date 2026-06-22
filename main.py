@@ -2094,11 +2094,14 @@ class If:
 				if self.iffalse:
 					return self.iffalse.compile()
 				return Empty()
-			return self.iftrue.compile()
+			if self.iftrue:
+				return self.iftrue.compile()
+			return Empty()
 
 		ret = If(self.ast, self.inline)
 		ret.cond = cond
-		ret.set_iftrue(self.iftrue.compile())
+		if self.iftrue:
+			ret.set_iftrue(self.iftrue.compile())
 		if self.iffalse:
 			ret.set_iffalse(self.iffalse.compile())
 		return ret
@@ -2106,21 +2109,24 @@ class If:
 	def clone(self):
 		ret = If(self.ast, self.inline)
 		ret.set_cond(self.cond.clone())
-		ret.set_iftrue(self.iftrue.clone())
+		if self.iftrue:
+			ret.set_iftrue(self.iftrue.clone())
 		if self.iffalse:
 			ret.set_iffalse(self.iffalse.clone())
 		return ret
 
 	def add_scope(self, exc):
 		self.cond = self.cond.add_scope(exc)
-		self.iftrue = self.iftrue.add_scope(exc)
+		if self.iftrue:
+			self.iftrue = self.iftrue.add_scope(exc)
 		if self.iffalse:
 			self.iffalse = self.iffalse.add_scope(exc)
 		return self
 
 	def set_scope(self, src, sed):
 		self.cond = self.cond.set_scope(src, sed)
-		self.iftrue = self.iftrue.set_scope(src, sed)
+		if self.iftrue:
+			self.iftrue = self.iftrue.set_scope(src, sed)
 		if self.iffalse:
 			self.iffalse = self.iffalse.set_scope(src, sed)
 		return self
@@ -2134,9 +2140,10 @@ class If:
 
 		ret = Formatter()
 		ret += f'if ({self.cond.to_verilog()}) begin\n'
-		ret.tab()
-		ret += self.iftrue.to_verilog()
-		ret.untab()
+		if self.iftrue:
+			ret.tab()
+			ret += self.iftrue.to_verilog()
+			ret.untab()
 		ret += 'end'
 		if self.iffalse:
 			ret += ' else begin\n'
@@ -2149,7 +2156,8 @@ class If:
 	def get_sens(self):
 		ret = {}
 		ret.update(self.cond.get_sens())
-		ret.update(self.iftrue.get_sens())
+		if self.iftrue:
+			ret.update(self.iftrue.get_sens())
 		if self.iffalse:
 			ret.update(self.iffalse.get_sens())
 		return ret
