@@ -1269,8 +1269,24 @@ def sh_signed(ast, args):
 	ret.add(')')
 	return ret.compile()
 
+def sh_write(ast, args):
+	ret = LiteralString(ast)
+	ret.add('$write(')
+	ret.add(args[0])
+	ret.add(', ')
+	ret.add(args[1])
+	ret.add(');\n')
+	return ret.compile()
+
+def sh_fflush(ast, args):
+	ret = LiteralString(ast)
+	ret.add('$fflush();\n')
+	return ret.compile()
+
 system['readmemh'] = sh_readmemh
 system['signed'] = sh_signed
+system['write'] = sh_write
+system['fflush'] = sh_fflush
 
 class Empty:
 	def get_sens(self):
@@ -3526,7 +3542,7 @@ system:
 	oneof: @system_create
 		call:
 			$system_func
-			listof:
+			listof: #optional
 				$expr: @system_add_arg
 		$system_func
 

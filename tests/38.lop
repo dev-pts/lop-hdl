@@ -1,0 +1,7 @@
+module: test
+	port:
+		clk: in
+
+	ff: +clk
+		$write("%c", 12)
+		$fflush()
