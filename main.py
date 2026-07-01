@@ -297,7 +297,7 @@ class Macro:
 
 	def compile(self):
 		ret = Macro(self.ast)
-		ret.set_func(self.func.add_scope(self.param))
+		ret.set_func(self.func.clone().add_scope(self.param))
 		for i in self.param:
 			ret.param[i] = None
 		return ret
@@ -429,9 +429,6 @@ class InterfaceInstance:
 			mname += f'_{i}_{ret.inst.scope.lookup(i).value.to_verilog()}'
 		ret.proto = mname.translate(str.maketrans(".-", "_n"))
 		return ret
-
-	def is_inout(self):
-		return True
 
 	def dim(self):
 		return (None, None)
@@ -1331,8 +1328,11 @@ class Identifier:
 
 	def replace_inout(self):
 		if self.is_inout():
-			self.name = f'_auto_{self.name}'
+			self.do_replace_inout()
 		return self
+
+	def do_replace_inout(self):
+		self.name = f'_auto_{self.name}'
 
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
@@ -1919,16 +1919,25 @@ class Hier:
 
 	def replace_inout(self):
 		if self.is_inout():
-			self.namespace.replace_inout()
+			self.do_replace_inout()
 		return self
+
+	def do_replace_inout(self):
+		self.namespace.do_replace_inout()
 
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
 
 	def add_scope(self, exc):
-		return self
+		ret = Hier(self.ast)
+		ret.set_field(self.field)
+		ret.set_namespace(self.namespace.add_scope({}))
+		return ret
 
 	def set_scope(self, src, sed):
+		if self.namespace:
+			self.namespace.set_scope(src, sed)
+			return self
 		self.set_namespace(src)
 		return self
 
@@ -2237,8 +2246,11 @@ class Slice:
 
 	def replace_inout(self):
 		if self.is_inout():
-			self.value.replace_inout()
+			self.do_replace_inout()
 		return self
+
+	def do_replace_inout(self):
+		self.value.do_replace_inout()
 
 	def is_inout(self):
 		return self.value.is_inout()

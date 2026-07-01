@@ -1,0 +1,28 @@
+interface: I2
+	port: A / B
+		b: net: out / in
+	macros:
+		i2 = block:
+			b = 1
+
+interface: I1
+	port: C / D
+		a: I2: A / B
+	macros:
+		pre = block:
+			a.b = 0
+			@a.i2
+
+module: test
+	port:
+		c: I1.C
+		d[2]: I1.C
+
+	@c.pre
+
+	@c.a.i2
+
+	c.a.b = 0
+
+	for: i
+		@d[i].pre
