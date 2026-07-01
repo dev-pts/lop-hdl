@@ -1,31 +1,13 @@
 module: test
 	submodule:
-		a: DCM_SP(
-			CLKIN_PERIOD = 20.0
-			CLKFX_MULTIPLY = 24
-			CLKFX_DIVIDE = 25
+		a: Ext(
+			P1 = 20.0
+			P2 = 24
 		)
 
-external: DCM_SP:
-		CLKIN_PERIOD = 0
-		CLKDV_DIVIDE = 1
-		CLKFX_MULTIPLY = 4
-		CLKFX_DIVIDE = 1
+external: Ext:
+		P1 = 0
+		P2 = 1
 	port:
-		CLKIN: in
-		CLKFB: in
-		RST: in
-		PSEN: in
-		PSINCDEC: in
-		PSCLK: in
-		CLK0: out
-		CLK90: out
-		CLK180: out
-		CLK270: out
-		CLK2X: out
-		CLK2X180: out
-		CLKDV: out
-		CLKFX: out
-		CLKFX180: out
-		LOCKED: out
-		PSDONE: out
+		b: in
+		c: out

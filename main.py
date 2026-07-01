@@ -597,9 +597,6 @@ class Module:
 		SCOPE.pop()
 		return ret
 
-	def hier(self, src, field):
-		return None
-
 	def to_verilog(self, name):
 		ret = Formatter()
 
