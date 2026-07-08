@@ -26,6 +26,7 @@ interface: APB:
 		do(a, b, c) = block:
 			a = ready
 			b = c
+			{ a, b } = { addr, sel }
 
 module: test
 	port:

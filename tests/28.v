@@ -41,22 +41,31 @@ module test(
 		apb2_1__ready <= 0;
 		some <= apb_0__ready;
 		some2 <= some3[0];
+		{ some, some2 } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[1] <= some;
+		{ some2[0], some3[1] } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[1] <= some;
+		{ some2[0], some3[1] } <= { apb_0__addr, apb_0__sel };
 		some2[1] <= apb_0__ready;
 		some3[1] <= some;
+		{ some2[1], some3[1] } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[0] <= some;
+		{ some2[0], some3[0] } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[1] <= some;
+		{ some2[0], some3[1] } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[2] <= some;
+		{ some2[0], some3[2] } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[0][0] <= some;
+		{ some2[0], some3[0][0] } <= { apb_0__addr, apb_0__sel };
 		some2[0] <= apb_0__ready;
 		some3[0][1] <= some;
+		{ some2[0], some3[0][1] } <= { apb_0__addr, apb_0__sel };
 		if ((apb2_0__sel & apb2_0__enable) & (~apb2_0__ready)) begin
 			apb2_0__ready <= 1;
 		end

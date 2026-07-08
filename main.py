@@ -1767,6 +1767,22 @@ class Bus:
 			ret.add(i.compile())
 		return ret
 
+	def clone(self):
+		ret = Bus(self.ast)
+		for i in self.item:
+			ret.add(i.clone())
+		return ret
+
+	def add_scope(self, exc):
+		for i in range(len(self.item)):
+			self.item[i] = self.item[i].add_scope(exc)
+		return self
+
+	def set_scope(self, src, sed):
+		for i in range(len(self.item)):
+			self.item[i] = self.item[i].set_scope(src, sed)
+		return self
+
 	def replace_inout(self):
 		for i in self.item:
 			i.replace_inout()
