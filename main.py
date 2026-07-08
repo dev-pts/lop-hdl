@@ -1337,6 +1337,9 @@ class Identifier:
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
 
+	def exc_scope(self, exc):
+		return self.name in exc
+
 	def add_scope(self, exc):
 		if self.name in exc:
 			return self
@@ -1944,7 +1947,13 @@ class Hier:
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
 
+	def exc_scope(self, exc):
+		return self.namespace.exc_scope(exc)
+
 	def add_scope(self, exc):
+		if self.exc_scope(exc):
+			return self
+
 		ret = Hier(self.ast)
 		ret.set_field(self.field)
 		ret.set_namespace(self.namespace.add_scope({}))
@@ -1952,7 +1961,7 @@ class Hier:
 
 	def set_scope(self, src, sed):
 		if self.namespace:
-			self.namespace.set_scope(src, sed)
+			self.set_namespace(self.namespace.set_scope(src, sed))
 			return self
 		self.set_namespace(src)
 		return self
