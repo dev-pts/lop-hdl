@@ -1109,9 +1109,6 @@ def sh_connect(ast, args):
 	a_intf = args[0].resolve().resolve()
 	b_intf = args[1].resolve().resolve()
 
-	if a_intf.proto != b_intf.proto:
-		raise Exception(f'Interfaces are incompatible: they differ by name and parameters: {a_intf.proto} != {b_intf.proto}')
-
 	a_lhs, a_rhs = _get_list(args[0])
 	b_lhs, b_rhs = _get_list(args[1])
 
