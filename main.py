@@ -535,6 +535,7 @@ class Module:
 		self.const = []
 		self.port = []
 		self.local = []
+		self.hidden_local = []
 
 		self.pre_comb = [[], []]
 		self.comb = [[], []]
@@ -556,6 +557,10 @@ class Module:
 
 	def add_local(self, arg):
 		self.local.append(arg)
+		self.scope.add(arg)
+
+	def add_hidden_local(self, arg):
+		self.hidden_local.append(arg)
 		self.scope.add(arg)
 
 	def add_initial(self, arg):
@@ -637,6 +642,12 @@ class Module:
 
 		for i in self.local:
 			ret += i.value.to_verilog(i.name)
+
+		if self.hidden_local:
+			ret += '/*verilator tracing_off*/\n'
+			for i in self.hidden_local:
+				ret += i.value.to_verilog(i.name)
+			ret += '/*verilator tracing_on*/\n'
 
 		if self.initial:
 			ret += 'initial begin\n'
@@ -1740,7 +1751,7 @@ class Assign:
 		symbol.set_name(name)
 		symbol.set_value(sv)
 
-		parent.add_local(symbol)
+		parent.add_hidden_local(symbol)
 
 		name_we = f'{tpl}_we '
 		net_we = Net(self.ast)
@@ -1748,7 +1759,7 @@ class Assign:
 		symbol_we.set_name(name_we)
 		symbol_we.set_value(net_we)
 
-		parent.add_local(symbol_we)
+		parent.add_hidden_local(symbol_we)
 
 		temp = Identifier(self.ast, name)
 		temp_we = Identifier(self.ast, name_we)
