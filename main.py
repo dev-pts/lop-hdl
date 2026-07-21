@@ -167,6 +167,16 @@ class GlobalScope:
 
 SCOPE = GlobalScope()
 
+def dim_to_width(dim):
+	if len(dim) == 2:
+		count, width = dim
+	else:
+		width = dim[0]
+	if width == None:
+		width = Number(None, 1)
+
+	return width
+
 @for_all_methods(wrap)
 class External:
 	def __init__(self):
@@ -526,7 +536,8 @@ class Module:
 		self.port = []
 		self.local = []
 
-		self.comb = []
+		self.pre_comb = [[], []]
+		self.comb = [[], []]
 		self.sync = []
 
 		self.initial = []
@@ -551,7 +562,16 @@ class Module:
 		self.initial.append(arg)
 
 	def add_comb(self, arg):
-		self.comb.append(arg)
+		self.comb[0].append(arg)
+
+	def preadd_comb(self, arg):
+		self.pre_comb[0].append(arg)
+
+	def add_comb2(self, arg):
+		self.comb[1].append(arg)
+
+	def preadd_comb2(self, arg):
+		self.pre_comb[1].append(arg)
 
 	def add_sync(self, arg):
 		self.sync.append(arg)
@@ -586,8 +606,8 @@ class Module:
 		for i in self.initial:
 			ret.add_initial(i.compile())
 
-		for i in self.comb:
-			ret.add_comb(i.compile())
+		for i in self.comb[0]:
+			ret.add_comb(i.compile().comb_compile(ret, True))
 		for i in self.sync:
 			ret.add_sync(i.compile())
 
@@ -626,21 +646,16 @@ class Module:
 			ret.untab()
 			ret += 'end\n'
 
-		sens = {}
-		for i in self.comb:
-			sens.update(i.get_sens())
-
-		if sens:
-			ret += 'always @('
-			ret += ', '.join(sens)
-			ret += ') begin\n'
-			ret.tab()
-
-			for i in self.comb:
-				ret += i.to_verilog()
-
-			ret.untab()
-			ret += 'end\n'
+		for i in range(2):
+			if self.comb[i]:
+				ret += 'always @(*) begin\n'
+				ret.tab()
+				for j in self.pre_comb[i]:
+					ret += j.to_verilog()
+				for j in self.comb[i]:
+					ret += j.to_verilog()
+				ret.untab()
+				ret += 'end\n'
 
 		for i in self.sync:
 			ret += i.to_verilog()
@@ -1065,9 +1080,6 @@ class Z:
 	def to_verilog(self):
 		return "1'bz"
 
-	def get_sens(self):
-		return {}
-
 def sh_z(ast, args):
 	if len(args) != 0:
 		raise Exception()
@@ -1223,14 +1235,6 @@ class LiteralString:
 				ret.add(i.compile())
 		return ret
 
-	def get_sens(self):
-		ret = {}
-		for i in self.value:
-			if type(i) == str:
-				continue
-			ret.update(i.get_sens())
-		return ret
-
 	def operator(self, op, op2):
 		return None
 
@@ -1280,8 +1284,8 @@ system['write'] = sh_write
 system['fflush'] = sh_fflush
 
 class Empty:
-	def get_sens(self):
-		return {}
+	def comb_compile(self, parent, toplevel):
+		return self
 
 	def to_verilog(self):
 		return ''
@@ -1370,9 +1374,6 @@ class Identifier:
 
 	def to_verilog_slice(self, dim):
 		return self.ref.to_verilog_slice(self.name, dim)
-
-	def get_sens(self):
-		return { self.name: None }
 
 @for_all_methods(wrap)
 class Number:
@@ -1517,9 +1518,6 @@ class Number:
 		ret += f'{{0:{self.base}}}'.format(self.to_int())
 		return ret
 
-	def get_sens(self):
-		return {}
-
 @for_all_methods(wrap)
 class String:
 	def __init__(self, ast, value):
@@ -1545,9 +1543,6 @@ class String:
 	def to_verilog(self):
 		return f'"{self.value}"'
 
-	def get_sens(self):
-		return {}
-
 @for_all_methods(wrap)
 class Block:
 	def __init__(self, ast):
@@ -1556,12 +1551,18 @@ class Block:
 
 	def add(self, arg):
 		self.body.append(arg)
+		return self
 
 	def compile(self):
 		ret = Block(self.ast)
 		for i in self.body:
 			ret.add(i.compile())
 		return ret
+
+	def comb_compile(self, parent, toplevel):
+		for i in range(len(self.body)):
+			self.body[i] = self.body[i].comb_compile(parent, toplevel)
+		return self
 
 	def clone(self):
 		ret = Block(self.ast)
@@ -1583,12 +1584,6 @@ class Block:
 		ret = Formatter()
 		for i in self.body:
 			ret += i.to_verilog()
-		return ret
-
-	def get_sens(self):
-		ret = {}
-		for i in self.body:
-			ret.update(i.get_sens())
 		return ret
 
 @for_all_methods(wrap)
@@ -1703,10 +1698,11 @@ class Sync:
 
 @for_all_methods(wrap)
 class Assign:
-	def __init__(self, ast):
+	def __init__(self, ast, assign_type='<='):
 		self.ast = ast
 		self.lhs = None
 		self.rhs = None
+		self.assign_type = assign_type
 
 	def set_lhs(self, lhs):
 		self.lhs = lhs
@@ -1716,16 +1712,87 @@ class Assign:
 		self.rhs = rhs
 		return self
 
+	def set_assign_type(self, arg):
+		self.assign_type = arg
+		return self
+
 	def compile(self):
 		ret = Assign(self.ast)
 		ret.set_lhs(self.lhs.compile().replace_inout())
 		ret.set_rhs(self.rhs.compile())
+		ret.set_assign_type(self.assign_type)
+		return ret
+
+	def comb_compile(self, parent, toplevel):
+		width = dim_to_width(self.lhs.dim())
+		idx = len(parent.comb[1])
+
+		tpl = f'\{self.lhs.to_verilog()}\{idx}'.replace(' ', '')
+		name = f'{tpl} '
+		net = Net(self.ast)
+		if width == 1:
+			sv = net
+		else:
+			sv = Array(self.ast)
+			sv.set_width(width)
+			sv.set_value(net)
+		symbol = Symbol(self.ast)
+		symbol.set_name(name)
+		symbol.set_value(sv)
+
+		parent.add_local(symbol)
+
+		name_we = f'{tpl}_we '
+		net_we = Net(self.ast)
+		symbol_we = Symbol(self.ast)
+		symbol_we.set_name(name_we)
+		symbol_we.set_value(net_we)
+
+		parent.add_local(symbol_we)
+
+		temp = Identifier(self.ast, name)
+		temp_we = Identifier(self.ast, name_we)
+
+		if toplevel:
+			parent.add_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp).compile())
+		else:
+			c2 = If(self.ast, False)
+			c2.set_cond(temp_we)
+			c2.set_iftrue(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp))
+
+			parent.add_comb2(c2.compile())
+			parent.preadd_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(Number(self.ast, 0)).compile())
+
+		self.set_assign_type('=')
+		self.set_lhs(temp.compile())
+
+		if not toplevel:
+			parent.preadd_comb(
+				Block(self.ast)
+					.add(
+						Assign(self.ast, '=')
+							.set_lhs(temp)
+							.set_rhs(Number(self.ast, 0))
+					)
+					.add(
+						Assign(self.ast, '=')
+							.set_lhs(temp_we)
+							.set_rhs(Number(self.ast, 0))
+					)
+			)
+
+		ret = Block(self.ast)
+		ret.add(self)
+		ret.add(Assign(self.ast, '=').set_lhs(temp_we).set_rhs(Number(self.ast, 1)))
+		ret = ret.compile()
+
 		return ret
 
 	def clone(self):
 		ret = Assign(self.ast)
 		ret.set_lhs(self.lhs.clone())
 		ret.set_rhs(self.rhs.clone())
+		ret.set_assign_type(self.assign_type)
 		return ret
 
 	def add_scope(self, exc):
@@ -1739,18 +1806,7 @@ class Assign:
 		return self
 
 	def to_verilog(self):
-		return f'{self.lhs.to_verilog()} <= {self.rhs.to_verilog()};\n'
-
-	def get_sens(self):
-		# Put LHS into the sens-list so that this:
-		#   always @() a <= 1;
-		# would evaluate into this:
-		#   always @(a) a <= 1;
-		# Nobody complains about this so far.
-		ret = {}
-		ret.update(self.lhs.get_sens())
-		ret.update(self.rhs.get_sens())
-		return ret
+		return f'{self.lhs.to_verilog()} {self.assign_type} {self.rhs.to_verilog()};\n'
 
 @for_all_methods(wrap)
 class Bus:
@@ -1766,6 +1822,12 @@ class Bus:
 		for i in self.item:
 			ret.add(i.compile())
 		return ret
+
+	def dim(self):
+		ret = 0
+		for i in self.item:
+			ret += dim_to_width(i.dim()).to_int()
+		return (Number(self.ast, ret),)
 
 	def clone(self):
 		ret = Bus(self.ast)
@@ -1794,12 +1856,6 @@ class Bus:
 	def to_verilog(self):
 		return '{ ' + ', '.join([i.to_verilog() for i in self.item]) + ' }'
 
-	def get_sens(self):
-		ret = {}
-		for i in self.item:
-			ret.update(i.get_sens())
-		return ret
-
 @for_all_methods(wrap)
 class Replicate:
 	def __init__(self, ast):
@@ -1826,12 +1882,6 @@ class Replicate:
 	def to_verilog(self):
 		item = '{ ' + ', '.join([i.to_verilog() for i in self.item]) + ' }'
 		return f'{{ {self.number.to_verilog()} {item} }}'
-
-	def get_sens(self):
-		ret = {}
-		for i in self.item:
-			ret.update(i.get_sens())
-		return ret
 
 @for_all_methods(wrap)
 class Operator:
@@ -1899,9 +1949,6 @@ class Unary:
 		if type(self.op1) in [Unary, Binary]:
 			ret += ')'
 		return ret
-
-	def get_sens(self):
-		return self.op1.get_sens()
 
 @for_all_methods(wrap)
 class Hier:
@@ -1984,9 +2031,6 @@ class Hier:
 	def to_verilog_slice(self, dim):
 		return self.ref.to_verilog_slice(self.namespace.resolve().to_verilog_hier(self.namespace, self.field), dim)
 
-	def get_sens(self):
-		return { self.namespace.resolve().to_verilog_hier(self.namespace, self.field): None }
-
 @for_all_methods(wrap)
 class Binary:
 	def __init__(self, ast):
@@ -2052,12 +2096,6 @@ class Binary:
 		ret += self.op2.to_verilog()
 		if type(self.op2) in [Unary, Binary]:
 			ret += ')'
-		return ret
-
-	def get_sens(self):
-		ret = {}
-		ret.update(self.op1.get_sens())
-		ret.update(self.op2.get_sens())
 		return ret
 
 @for_all_methods(wrap)
@@ -2150,6 +2188,13 @@ class If:
 			ret.set_iffalse(self.iffalse.compile())
 		return ret
 
+	def comb_compile(self, parent, toplevel):
+		if self.iftrue:
+			self.set_iftrue(self.iftrue.comb_compile(parent, False))
+		if self.iffalse:
+			self.set_iffalse(self.iffalse.comb_compile(parent, False))
+		return self
+
 	def clone(self):
 		ret = If(self.ast, self.inline)
 		ret.set_cond(self.cond.clone())
@@ -2196,15 +2241,6 @@ class If:
 			ret.untab()
 			ret += 'end'
 		return ret + '\n'
-
-	def get_sens(self):
-		ret = {}
-		ret.update(self.cond.get_sens())
-		if self.iftrue:
-			ret.update(self.iftrue.get_sens())
-		if self.iffalse:
-			ret.update(self.iffalse.get_sens())
-		return ret
 
 @for_all_methods(wrap)
 class Slice:
@@ -2297,9 +2333,6 @@ class Slice:
 
 	def to_verilog_hier(self, namespace, field):
 		return self.value.to_verilog_hier(namespace, field)
-
-	def get_sens(self):
-		return { self.value.to_verilog_slice((self.hilo, None)): None }
 
 @for_all_methods(wrap)
 class Instance:
