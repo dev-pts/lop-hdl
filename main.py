@@ -1752,20 +1752,21 @@ class Assign:
 
 		parent.add_hidden_local(symbol)
 
-		name_we = f'{tpl}_we '
-		net_we = Net(self.ast)
-		symbol_we = Symbol(self.ast)
-		symbol_we.set_name(name_we)
-		symbol_we.set_value(net_we)
-
-		parent.add_hidden_local(symbol_we)
-
 		temp = Identifier(self.ast, name)
-		temp_we = Identifier(self.ast, name_we)
 
 		if toplevel:
 			parent.add_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp).compile())
 		else:
+			name_we = f'{tpl}_we '
+			net_we = Net(self.ast)
+			symbol_we = Symbol(self.ast)
+			symbol_we.set_name(name_we)
+			symbol_we.set_value(net_we)
+
+			parent.add_hidden_local(symbol_we)
+
+			temp_we = Identifier(self.ast, name_we)
+
 			c2 = If(self.ast, False)
 			c2.set_cond(temp_we)
 			c2.set_iftrue(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp))
@@ -1793,7 +1794,8 @@ class Assign:
 
 		ret = Block(self.ast)
 		ret.add(self)
-		ret.add(Assign(self.ast, '=').set_lhs(temp_we).set_rhs(Number(self.ast, 1)))
+		if not toplevel:
+			ret.add(Assign(self.ast, '=').set_lhs(temp_we).set_rhs(Number(self.ast, 1)))
 		ret = ret.compile()
 
 		return ret
