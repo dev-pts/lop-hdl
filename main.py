@@ -168,10 +168,9 @@ class GlobalScope:
 SCOPE = GlobalScope()
 
 def dim_to_width(dim):
-	if len(dim) == 2:
-		count, width = dim
-	else:
-		width = dim[0]
+	width = None
+	if len(dim) > 0:
+		width = dim[-1]
 	if width == None:
 		width = Number(None, 1)
 
