@@ -566,19 +566,24 @@ class Module:
 		self.initial.append(arg)
 
 	def add_comb(self, arg):
-		self.comb[0].append(arg)
+		if type(arg) != Empty:
+			self.comb[0].append(arg)
 
 	def preadd_comb(self, arg):
-		self.pre_comb[0].append(arg)
+		if type(arg) != Empty:
+			self.pre_comb[0].append(arg)
 
 	def add_comb2(self, arg):
-		self.comb[1].append(arg)
+		if type(arg) != Empty:
+			self.comb[1].append(arg)
 
 	def preadd_comb2(self, arg):
-		self.pre_comb[1].append(arg)
+		if type(arg) != Empty:
+			self.pre_comb[1].append(arg)
 
 	def add_sync(self, arg):
-		self.sync.append(arg)
+		if type(arg) != Empty:
+			self.sync.append(arg)
 
 	def compile(self, param=Scope()):
 		ret = Module()
@@ -1776,6 +1781,31 @@ class Assign:
 
 		self.set_assign_type('=')
 		self.set_lhs(temp.compile())
+
+		# Since it will be inside always @*,
+		# we have to make sure that it will be triggered.
+		# If we have only constants on the rhs,
+		# then we need to create a temp var and assign it
+		# to our lhs.
+		if toplevel and type(self.rhs) == Number:
+			name_sens = f'{tpl}_sens '
+
+			net_sens = Net(self.ast)
+			net_sens.set_value(self.rhs)
+
+			arr_sens = Array(self.ast)
+			arr_sens.set_width(dim_to_width(self.rhs.dim()))
+			arr_sens.set_value(net_sens)
+
+			symbol_sens = Symbol(self.ast)
+			symbol_sens.set_name(name_sens)
+			symbol_sens.set_value(arr_sens)
+
+			parent.add_hidden_local(symbol_sens)
+
+			temp_sens = Identifier(self.ast, name_sens)
+
+			self.rhs = temp_sens.compile()
 
 		if not toplevel:
 			parent.preadd_comb(
