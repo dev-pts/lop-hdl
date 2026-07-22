@@ -1740,7 +1740,7 @@ class Assign:
 		tpl = f'\{self.lhs.to_verilog()}\{idx}'.replace(' ', '')
 		name = f'{tpl} '
 		net = Net(self.ast)
-		if width == 1:
+		if width.to_int() == 1:
 			sv = net
 		else:
 			sv = Array(self.ast)
