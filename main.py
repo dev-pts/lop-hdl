@@ -457,22 +457,6 @@ class InterfaceInstance:
 			ret.extend(i.resolve().get_ports(filter_dir, Hier(src.ast).set_namespace(src).set_field(Identifier(src.ast, i.name))))
 		return ret
 
-	def get_inouts(self, name, shape=(None, None)):
-		ret = Formatter()
-		count, _ = shape
-
-		for i in self.inst.port:
-			if count:
-				if count.to_int() == 0:
-					raise Exception()
-				if count.to_int() > 1:
-					for j in range(count.to_int()):
-						ret += i.resolve().get_inouts(f'{name}_{j}__{i.name}')
-			else:
-				ret += i.resolve().get_inouts(f'{name}__{i.name}')
-
-		return ret
-
 	def get_port_name(self, name, filt, shape=(None, None)):
 		ret = []
 		count, _ = shape
@@ -539,6 +523,7 @@ class Module:
 		self.pre_comb = [[], []]
 		self.comb = [[], []]
 		self.sync = []
+		self.assign = []
 
 		self.initial = []
 
@@ -585,6 +570,16 @@ class Module:
 		if type(arg) != Empty:
 			self.sync.append(arg)
 
+	def add_assign(self, arg):
+		if type(arg) != Empty:
+			self.assign.append(arg)
+
+	def _add_code(self, arg, dst):
+		arg = arg.fix_lhs_inout(self)
+		if type(arg) == Empty:
+			return
+		dst.append(arg)
+
 	def compile(self, param=Scope()):
 		ret = Module()
 
@@ -620,6 +615,36 @@ class Module:
 		for i in self.sync:
 			ret.add_sync(i.compile())
 
+		tmp = []
+		for i in ret.initial:
+			ret._add_code(i, tmp)
+		ret.initial = tmp
+
+		tmp = []
+		for i in ret.sync:
+			ret._add_code(i, tmp)
+		ret.sync = tmp
+
+		tmp = []
+		for i in ret.comb[0]:
+			ret._add_code(i, tmp)
+		ret.comb[0] = tmp
+
+		tmp = []
+		for i in ret.comb[1]:
+			ret._add_code(i, tmp)
+		ret.comb[1] = tmp
+
+		tmp = []
+		for i in ret.pre_comb[0]:
+			ret._add_code(i, tmp)
+		ret.pre_comb[0] = tmp
+
+		tmp = []
+		for i in ret.pre_comb[1]:
+			ret._add_code(i, tmp)
+		ret.pre_comb[1] = tmp
+
 		SCOPE.pop()
 		return ret
 
@@ -641,8 +666,8 @@ class Module:
 		for i in self.const:
 			ret += f'localparam {i.name} = {i.value.to_verilog()};\n'
 
-		for i in self.port:
-			ret += i.value.get_inouts(i.name)
+		for i in self.assign:
+			ret += f'assign {i.to_verilog()}'
 
 		for i in self.local:
 			ret += i.value.to_verilog(i.name)
@@ -727,22 +752,6 @@ class Port:
 		if self.dir == filter_dir:
 			return [src]
 		return []
-
-	def get_inouts(self, name, shape=(None, None)):
-		if self.dir != 'inout':
-			return None
-
-		count, width = shape
-
-		ret = Formatter()
-		if count and count.to_int() > 1:
-			for i in range(count.to_int()):
-				ret += self._to_verilog_one('reg ', f'_auto_{name}', width, i) + ';\n'
-				ret += f'assign {name}_{i} = _auto_{name}_{i};\n'
-		else:
-			ret += self._to_verilog_one('reg ', f'_auto_{name}', width, None) + ';\n'
-			ret += f'assign {name} = _auto_{name};\n'
-		return ret
 
 	def get_port_name(self, name, filt, shape=(None, None)):
 		if self.dir not in filt:
@@ -999,9 +1008,6 @@ class Array:
 
 	def is_instance(self):
 		return self.value.is_instance()
-
-	def get_inouts(self, name):
-		return self.value.get_inouts(name, self.shape)
 
 	def get_port_name(self, name, filt):
 		return self.value.get_port_name(name, filt, self.shape)
@@ -1302,8 +1308,8 @@ class Empty:
 	def comb_compile(self, parent, toplevel):
 		return self
 
-	def to_verilog(self):
-		return ''
+	def fix_lhs_inout(self, parent):
+		return self
 
 @for_all_methods(wrap)
 class System:
@@ -1342,13 +1348,29 @@ class Identifier:
 	def clone(self):
 		return Identifier(self.ast, self.name)
 
-	def replace_inout(self):
+	def fix_lhs_inout(self, parent):
 		if self.is_inout():
-			self.do_replace_inout()
-		return self
+			name_reg = f'\{self.name}_reg '
+			ref = self.ref.resolve()
 
-	def do_replace_inout(self):
-		self.name = f'_auto_{self.name}'
+			net_reg = Net(self.ast)
+
+			arr_reg = Array(self.ast)
+			arr_reg.set_width(dim_to_width(ref.dim()))
+			arr_reg.set_value(net_reg)
+
+			symbol_reg = Symbol(self.ast)
+			symbol_reg.set_name(name_reg)
+			symbol_reg.set_value(arr_reg)
+
+			parent.add_hidden_local(symbol_reg)
+
+			temp_reg = Identifier(self.ast, name_reg).compile()
+
+			parent.add_assign(Assign(self.ast, '=').set_lhs(self).set_rhs(temp_reg))
+
+			return temp_reg
+		return self
 
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
@@ -1579,6 +1601,11 @@ class Block:
 			self.body[i] = self.body[i].comb_compile(parent, toplevel)
 		return self
 
+	def fix_lhs_inout(self, parent):
+		for i in range(len(self.body)):
+			self.body[i] = self.body[i].fix_lhs_inout(parent)
+		return self
+
 	def clone(self):
 		ret = Block(self.ast)
 		for i in self.body:
@@ -1733,7 +1760,7 @@ class Assign:
 
 	def compile(self):
 		ret = Assign(self.ast)
-		ret.set_lhs(self.lhs.compile().replace_inout())
+		ret.set_lhs(self.lhs.compile())
 		ret.set_rhs(self.rhs.compile())
 		ret.set_assign_type(self.assign_type)
 		return ret
@@ -1757,7 +1784,7 @@ class Assign:
 
 		parent.add_hidden_local(symbol)
 
-		temp = Identifier(self.ast, name)
+		temp = Identifier(self.ast, name).compile()
 
 		if toplevel:
 			parent.add_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp).compile())
@@ -1770,7 +1797,7 @@ class Assign:
 
 			parent.add_hidden_local(symbol_we)
 
-			temp_we = Identifier(self.ast, name_we)
+			temp_we = Identifier(self.ast, name_we).compile()
 
 			c2 = If(self.ast, False)
 			c2.set_cond(temp_we)
@@ -1780,7 +1807,7 @@ class Assign:
 			parent.preadd_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(Number(self.ast, 0)).compile())
 
 		self.set_assign_type('=')
-		self.set_lhs(temp.compile())
+		self.set_lhs(temp)
 
 		# Since it will be inside always @*,
 		# we have to make sure that it will be triggered.
@@ -1803,9 +1830,9 @@ class Assign:
 
 			parent.add_hidden_local(symbol_sens)
 
-			temp_sens = Identifier(self.ast, name_sens)
+			temp_sens = Identifier(self.ast, name_sens).compile()
 
-			self.rhs = temp_sens.compile()
+			self.rhs = temp_sens
 
 		if not toplevel:
 			parent.preadd_comb(
@@ -1829,6 +1856,10 @@ class Assign:
 		ret = ret.compile()
 
 		return ret
+
+	def fix_lhs_inout(self, parent):
+		self.set_lhs(self.lhs.fix_lhs_inout(parent))
+		return self
 
 	def clone(self):
 		ret = Assign(self.ast)
@@ -1885,11 +1916,6 @@ class Bus:
 	def set_scope(self, src, sed):
 		for i in range(len(self.item)):
 			self.item[i] = self.item[i].set_scope(src, sed)
-		return self
-
-	def replace_inout(self):
-		for i in self.item:
-			i.replace_inout()
 		return self
 
 	def operator(self, op, op2):
@@ -2021,11 +2047,6 @@ class Hier:
 			ret.set_namespace(self.namespace.clone())
 		ret.set_field(self.field.clone())
 		return ret
-
-	def replace_inout(self):
-		if self.is_inout():
-			self.do_replace_inout()
-		return self
 
 	def do_replace_inout(self):
 		self.namespace.do_replace_inout()
@@ -2344,9 +2365,9 @@ class Slice:
 		ret.set_hilo(hilo)
 		return ret
 
-	def replace_inout(self):
+	def fix_lhs_inout(self, parent):
 		if self.is_inout():
-			self.do_replace_inout()
+			self.set_value(self.value.fix_lhs_inout(parent))
 		return self
 
 	def do_replace_inout(self):
