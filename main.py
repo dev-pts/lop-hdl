@@ -451,6 +451,9 @@ class InterfaceInstance:
 	def is_instance(self):
 		return False
 
+	def is_inout(self):
+		return False
+
 	def get_ports(self, filter_dir, src):
 		ret = []
 		for i in self.inst.port:
@@ -527,6 +530,12 @@ class Module:
 
 		self.initial = []
 
+		self.var_idx = -1
+
+	def get_var_idx(self):
+		self.var_idx += 1
+		return self.var_idx
+
 	def add_param(self, arg):
 		self.param.append(arg)
 		self.scope.add(arg)
@@ -575,6 +584,9 @@ class Module:
 			self.assign.append(arg)
 
 	def _add_code(self, arg, dst):
+		arg = arg.fix_port_array(self)
+		if type(arg) == Empty:
+			return
 		arg = arg.fix_lhs_inout(self)
 		if type(arg) == Empty:
 			return
@@ -614,6 +626,12 @@ class Module:
 			ret.add_comb(i.compile().comb_compile(ret, True))
 		for i in self.sync:
 			ret.add_sync(i.compile())
+
+		tmp = ret.port
+		ret.port = []
+		for i in tmp:
+			i.fix_port_array(ret)
+		ret.port.extend(tmp)
 
 		tmp = []
 		for i in ret.initial:
@@ -655,7 +673,7 @@ class Module:
 		if self.port:
 			ret += '\n'
 			ret.tab()
-			ret += ',\n'.join([i.value.to_verilog(i.name) for i in self.port])
+			ret += ',\n'.join([i.value.to_verilog(i.name) for i in self.port if not i.value.is_port_array()])
 			ret.untab()
 			ret += '\n'
 		ret += ');\n'
@@ -747,6 +765,28 @@ class Port:
 
 	def slice(self, hi, lo):
 		return None
+
+	def fix_port_array(self, name, shape):
+		count, width = shape
+
+		if count and count.to_int() > 1:
+			ret = []
+			for i in range(count.to_int()):
+				p = self.compile()
+
+				a = Array(self.ast)
+				a.set_value(p)
+				a.set_width(width)
+				a = a.compile()
+
+				s = Symbol(self.ast)
+				s.set_name(f'{name}_{i}')
+				s.set_value(a)
+				s.compile_value()
+
+				ret.append(s)
+			return ret
+		return [self]
 
 	def get_ports(self, filter_dir, src):
 		if self.dir == filter_dir:
@@ -988,6 +1028,9 @@ class Array:
 		ret.set_value(self.value.compile())
 		return ret
 
+	def fix_port_array(self, name):
+		return self.value.fix_port_array(name, self.shape)
+
 	def set_binded(self):
 		self.value.set_binded()
 
@@ -1005,6 +1048,9 @@ class Array:
 
 	def dim(self):
 		return self.shape
+
+	def is_port_array(self):
+		return self.shape[0] != None and type(self.value) == Port
 
 	def is_instance(self):
 		return self.value.is_instance()
@@ -1058,6 +1104,13 @@ class Symbol:
 			self.value = self.value.compile(*args, **kwargs)
 			self.compiled = True
 		return self.value
+
+	def fix_port_array(self, parent):
+		if not self.value.is_port_array():
+			return
+
+		for i in self.value.fix_port_array(self.name):
+			parent.add_port(i)
 
 	def to_verilog_inst_port(self, name):
 		count, _ = self.dim()
@@ -1336,6 +1389,7 @@ class Identifier:
 		self.ast = ast
 		self.name = name
 		self.ref = None
+		self.tmp = None
 
 	def compile(self):
 		ref = SCOPE.lookup(self.name).compile_value()
@@ -1348,9 +1402,13 @@ class Identifier:
 	def clone(self):
 		return Identifier(self.ast, self.name)
 
-	def fix_lhs_inout(self, parent):
+	def fix_lhs_inout(self, parent, field=''):
 		if self.is_inout():
-			name_reg = f'\{self.name}_reg '
+			if self.tmp != None:
+				return self.tmp
+
+			idx = parent.get_var_idx()
+			name_reg = f'\{self.name}\{idx}_reg '
 			ref = self.ref.resolve()
 
 			net_reg = Net(self.ast)
@@ -1369,8 +1427,18 @@ class Identifier:
 
 			parent.add_assign(Assign(self.ast, '=').set_lhs(self).set_rhs(temp_reg))
 
+			self.tmp = temp_reg
+
 			return temp_reg
 		return self
+
+	def fix_port_array(self, parent, hilo=None):
+		if hilo != None:
+			return Identifier(self.ast, f'{self.name}_{hilo.to_int()}').compile()
+		return self
+
+	def is_port_array(self):
+		return self.ref.is_port_array()
 
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
@@ -1458,6 +1526,9 @@ class Number:
 
 	def compile(self):
 		return Number(self.ast, self.value, self.width, self.base)
+
+	def fix_port_array(self, parent):
+		return self
 
 	def set_binded(self):
 		pass
@@ -1604,6 +1675,11 @@ class Block:
 	def fix_lhs_inout(self, parent):
 		for i in range(len(self.body)):
 			self.body[i] = self.body[i].fix_lhs_inout(parent)
+		return self
+
+	def fix_port_array(self, parent):
+		for i in range(len(self.body)):
+			self.body[i] = self.body[i].fix_port_array(parent)
 		return self
 
 	def clone(self):
@@ -1767,7 +1843,7 @@ class Assign:
 
 	def comb_compile(self, parent, toplevel):
 		width = dim_to_width(self.lhs.dim())
-		idx = len(parent.comb[1])
+		idx = parent.get_var_idx()
 
 		tpl = f'\{self.lhs.to_verilog()}\{idx}'.replace(' ', '')
 		name = f'{tpl} '
@@ -1861,6 +1937,11 @@ class Assign:
 		self.set_lhs(self.lhs.fix_lhs_inout(parent))
 		return self
 
+	def fix_port_array(self, parent):
+		self.set_lhs(self.lhs.fix_port_array(parent))
+		self.set_rhs(self.rhs.fix_port_array(parent))
+		return self
+
 	def clone(self):
 		ret = Assign(self.ast)
 		ret.set_lhs(self.lhs.clone())
@@ -1895,6 +1976,16 @@ class Bus:
 		for i in self.item:
 			ret.add(i.compile())
 		return ret
+
+	def fix_lhs_inout(self, parent):
+		for i in range(len(self.item)):
+			self.item[i] = self.item[i].fix_lhs_inout(parent)
+		return self
+
+	def fix_port_array(self, parent):
+		for i in range(len(self.item)):
+			self.item[i] = self.item[i].fix_port_array(parent)
+		return self
 
 	def dim(self):
 		ret = 0
@@ -2047,6 +2138,14 @@ class Hier:
 			ret.set_namespace(self.namespace.clone())
 		ret.set_field(self.field.clone())
 		return ret
+
+	def fix_lhs_inout(self, parent, field=''):
+		if self.is_inout():
+			return self.namespace.fix_lhs_inout(parent, self.field)
+		return self
+
+	def fix_port_array(self, parent):
+		return self
 
 	def do_replace_inout(self):
 		self.namespace.do_replace_inout()
@@ -2368,6 +2467,11 @@ class Slice:
 	def fix_lhs_inout(self, parent):
 		if self.is_inout():
 			self.set_value(self.value.fix_lhs_inout(parent))
+		return self
+
+	def fix_port_array(self, parent):
+		if self.value.is_port_array():
+			return self.value.fix_port_array(parent, self.hilo)
 		return self
 
 	def do_replace_inout(self):
