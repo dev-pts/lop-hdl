@@ -167,6 +167,15 @@ class GlobalScope:
 
 SCOPE = GlobalScope()
 
+def dim_to_width(dim):
+	width = None
+	if len(dim) > 0:
+		width = dim[-1]
+	if width == None:
+		width = Number(None, 1)
+
+	return width
+
 @for_all_methods(wrap)
 class External:
 	def __init__(self):
@@ -525,11 +534,20 @@ class Module:
 		self.const = []
 		self.port = []
 		self.local = []
+		self.hidden_local = []
 
-		self.comb = []
+		self.pre_comb = [[], []]
+		self.comb = [[], []]
 		self.sync = []
+		self.assign = []
 
 		self.initial = []
+
+		self.var_idx = -1
+
+	def get_var_idx(self):
+		self.var_idx += 1
+		return self.var_idx
 
 	def add_param(self, arg):
 		self.param.append(arg)
@@ -547,17 +565,37 @@ class Module:
 		self.local.append(arg)
 		self.scope.add(arg)
 
+	def add_hidden_local(self, arg):
+		self.hidden_local.append(arg)
+		self.scope.add(arg)
+
 	def add_initial(self, arg):
 		if type(arg) != Empty:
 			self.initial.append(arg)
 
 	def add_comb(self, arg):
 		if type(arg) != Empty:
-			self.comb.append(arg)
+			self.comb[0].append(arg)
+
+	def preadd_comb(self, arg):
+		if type(arg) != Empty:
+			self.pre_comb[0].append(arg)
+
+	def add_comb2(self, arg):
+		if type(arg) != Empty:
+			self.comb[1].append(arg)
+
+	def preadd_comb2(self, arg):
+		if type(arg) != Empty:
+			self.pre_comb[1].append(arg)
 
 	def add_sync(self, arg):
 		if type(arg) != Empty:
 			self.sync.append(arg)
+
+	def add_assign(self, arg):
+		if type(arg) != Empty:
+			self.assign.append(arg)
 
 	def compile(self, param=Scope()):
 		ret = Module()
@@ -589,10 +627,15 @@ class Module:
 		for i in self.initial:
 			ret.add_initial(i.compile())
 
-		for i in self.comb:
+		for i in self.comb[0]:
 			ret.add_comb(i.compile())
 		for i in self.sync:
 			ret.add_sync(i.compile())
+
+		tmp = ret.comb[0]
+		ret.comb[0] = []
+		for i in tmp:
+			ret.add_comb(i.split_always_comb(ret, True))
 
 		SCOPE.pop()
 		return ret
@@ -615,11 +658,17 @@ class Module:
 		for i in self.const:
 			ret += f'localparam {i.name} = {i.value.to_verilog()};\n'
 
-		for i in self.port:
-			ret += i.value.get_inouts(i.name)
+		for i in self.assign:
+			ret += f'assign {i.to_verilog()}'
 
 		for i in self.local:
 			ret += i.value.to_verilog(i.name)
+
+		if self.hidden_local:
+			ret += '/*verilator tracing_off*/\n'
+			for i in self.hidden_local:
+				ret += i.value.to_verilog(i.name)
+			ret += '/*verilator tracing_on*/\n'
 
 		if self.initial:
 			ret += 'initial begin\n'
@@ -629,21 +678,16 @@ class Module:
 			ret.untab()
 			ret += 'end\n'
 
-		sens = {}
-		for i in self.comb:
-			sens.update(i.get_sens())
-
-		if sens:
-			ret += 'always @('
-			ret += ', '.join(sens)
-			ret += ') begin\n'
-			ret.tab()
-
-			for i in self.comb:
-				ret += i.to_verilog()
-
-			ret.untab()
-			ret += 'end\n'
+		for i in range(2):
+			if self.comb[i]:
+				ret += 'always @(*) begin\n'
+				ret.tab()
+				for j in self.pre_comb[i]:
+					ret += j.to_verilog()
+				for j in self.comb[i]:
+					ret += j.to_verilog()
+				ret.untab()
+				ret += 'end\n'
 
 		for i in self.sync:
 			ret += i.to_verilog()
@@ -1286,6 +1330,9 @@ class Empty:
 	def get_sens(self):
 		return {}
 
+	def split_always_comb(self, parent, toplevel):
+		return self
+
 @for_all_methods(wrap)
 class System:
 	def __init__(self, ast):
@@ -1557,12 +1604,18 @@ class Block:
 	def add(self, arg):
 		if type(arg) != Empty:
 			self.body.append(arg)
+		return self
 
 	def compile(self):
 		ret = Block(self.ast)
 		for i in self.body:
 			ret.add(i.compile())
 		return ret
+
+	def split_always_comb(self, parent, toplevel):
+		for i in range(len(self.body)):
+			self.body[i] = self.body[i].split_always_comb(parent, toplevel)
+		return self
 
 	def clone(self):
 		ret = Block(self.ast)
@@ -1704,10 +1757,11 @@ class Sync:
 
 @for_all_methods(wrap)
 class Assign:
-	def __init__(self, ast):
+	def __init__(self, ast, assign_type='<='):
 		self.ast = ast
 		self.lhs = None
 		self.rhs = None
+		self.assign_type = assign_type
 
 	def set_lhs(self, lhs):
 		self.lhs = lhs
@@ -1717,16 +1771,114 @@ class Assign:
 		self.rhs = rhs
 		return self
 
+	def set_assign_type(self, arg):
+		self.assign_type = arg
+		return self
+
 	def compile(self):
 		ret = Assign(self.ast)
 		ret.set_lhs(self.lhs.compile().replace_inout())
 		ret.set_rhs(self.rhs.compile())
+		ret.set_assign_type(self.assign_type)
+		return ret
+
+	def split_always_comb(self, parent, toplevel):
+		width = dim_to_width(self.lhs.dim())
+		idx = parent.get_var_idx()
+
+		tpl = f'\{self.lhs.to_verilog()}\{idx}'.replace(' ', '')
+		name = f'{tpl} '
+		net = Net(self.ast)
+		if width.to_int() == 1:
+			sv = net
+		else:
+			sv = Array(self.ast)
+			sv.set_width(width)
+			sv.set_value(net)
+		symbol = Symbol(self.ast)
+		symbol.set_name(name)
+		symbol.set_value(sv)
+
+		parent.add_hidden_local(symbol)
+
+		temp = Identifier(self.ast, name).compile()
+
+		if toplevel:
+			parent.add_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp).compile())
+		else:
+			name_we = f'{tpl}_we '
+			net_we = Net(self.ast)
+			symbol_we = Symbol(self.ast)
+			symbol_we.set_name(name_we)
+			symbol_we.set_value(net_we)
+
+			parent.add_hidden_local(symbol_we)
+
+			temp_we = Identifier(self.ast, name_we).compile()
+
+			c2 = If(self.ast, False)
+			c2.set_cond(temp_we)
+			c2.set_iftrue(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp))
+
+			parent.add_comb2(c2.compile())
+			parent.preadd_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(Number(self.ast, 0)).compile())
+
+		self.set_assign_type('=')
+		self.set_lhs(temp)
+
+		# Since it will be inside always @*,
+		# we have to make sure that it will be triggered.
+		# If we have only constants on the rhs,
+		# then we need to create a temp var and assign it
+		# to our lhs.
+		if toplevel and type(self.rhs) == Number:
+			name_sens = f'{tpl}_sens '
+
+			net_sens = Net(self.ast)
+			net_sens.set_value(self.rhs)
+
+			arr_sens = Array(self.ast)
+			arr_sens.set_width(dim_to_width(self.rhs.dim()))
+			arr_sens.set_value(net_sens)
+
+			symbol_sens = Symbol(self.ast)
+			symbol_sens.set_name(name_sens)
+			symbol_sens.set_value(arr_sens)
+
+			parent.add_hidden_local(symbol_sens)
+
+			temp_sens = Identifier(self.ast, name_sens).compile()
+
+			self.rhs = temp_sens
+
+		if not toplevel:
+			parent.preadd_comb(
+				Block(self.ast)
+					.add(
+						Assign(self.ast, '=')
+							.set_lhs(temp)
+							.set_rhs(Number(self.ast, 0))
+					)
+					.add(
+						Assign(self.ast, '=')
+							.set_lhs(temp_we)
+							.set_rhs(Number(self.ast, 0))
+					)
+			)
+
+		ret = Block(self.ast)
+		ret.add(self)
+		if not toplevel:
+			ret.add(Assign(self.ast, '=').set_lhs(temp_we).set_rhs(Number(self.ast, 1)))
+		ret = ret.compile()
+
 		return ret
 
 	def clone(self):
 		ret = Assign(self.ast)
 		ret.set_lhs(self.lhs.clone())
 		ret.set_rhs(self.rhs.clone())
+		ret.set_assign_type(self.assign_type)
 		return ret
 
 	def add_scope(self, exc):
@@ -1740,7 +1892,7 @@ class Assign:
 		return self
 
 	def to_verilog(self):
-		return f'{self.lhs.to_verilog()} <= {self.rhs.to_verilog()};\n'
+		return f'{self.lhs.to_verilog()} {self.assign_type} {self.rhs.to_verilog()};\n'
 
 	def get_sens(self):
 		# Put LHS into the sens-list so that this:
@@ -1767,6 +1919,12 @@ class Bus:
 		for i in self.item:
 			ret.add(i.compile())
 		return ret
+
+	def dim(self):
+		ret = 0
+		for i in self.item:
+			ret += dim_to_width(i.dim()).to_int()
+		return (Number(self.ast, ret),)
 
 	def clone(self):
 		ret = Bus(self.ast)
@@ -2156,6 +2314,13 @@ class If:
 		if self.iffalse:
 			ret.set_iffalse(self.iffalse.compile())
 		return ret
+
+	def split_always_comb(self, parent, toplevel):
+		if self.iftrue:
+			self.set_iftrue(self.iftrue.split_always_comb(parent, False))
+		if self.iffalse:
+			self.set_iffalse(self.iffalse.split_always_comb(parent, False))
+		return self
 
 	def clone(self):
 		ret = If(self.ast, self.inline)
