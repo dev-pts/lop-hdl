@@ -451,26 +451,13 @@ class InterfaceInstance:
 	def is_instance(self):
 		return False
 
+	def is_inout(self):
+		return False
+
 	def get_ports(self, filter_dir, src):
 		ret = []
 		for i in self.inst.port:
 			ret.extend(i.resolve().get_ports(filter_dir, Hier(src.ast).set_namespace(src).set_field(Identifier(src.ast, i.name))))
-		return ret
-
-	def get_inouts(self, name, shape=(None, None)):
-		ret = Formatter()
-		count, _ = shape
-
-		for i in self.inst.port:
-			if count:
-				if count.to_int() == 0:
-					raise Exception()
-				if count.to_int() > 1:
-					for j in range(count.to_int()):
-						ret += i.resolve().get_inouts(f'{name}_{j}__{i.name}')
-			else:
-				ret += i.resolve().get_inouts(f'{name}__{i.name}')
-
 		return ret
 
 	def get_port_name(self, name, filt, shape=(None, None)):
@@ -745,22 +732,6 @@ class Port:
 			return [src]
 		return []
 
-	def get_inouts(self, name, shape=(None, None)):
-		if self.dir != 'inout':
-			return None
-
-		count, width = shape
-
-		ret = Formatter()
-		if count and count.to_int() > 1:
-			for i in range(count.to_int()):
-				ret += self._to_verilog_one('reg ', f'_auto_{name}', width, i) + ';\n'
-				ret += f'assign {name}_{i} = _auto_{name}_{i};\n'
-		else:
-			ret += self._to_verilog_one('reg ', f'_auto_{name}', width, None) + ';\n'
-			ret += f'assign {name} = _auto_{name};\n'
-		return ret
-
 	def get_port_name(self, name, filt, shape=(None, None)):
 		if self.dir not in filt:
 			return []
@@ -1017,9 +988,6 @@ class Array:
 	def is_instance(self):
 		return self.value.is_instance()
 
-	def get_inouts(self, name):
-		return self.value.get_inouts(name, self.shape)
-
 	def get_port_name(self, name, filt):
 		return self.value.get_port_name(name, filt, self.shape)
 
@@ -1111,9 +1079,6 @@ class Z:
 
 	def to_verilog(self):
 		return "1'bz"
-
-	def get_sens(self):
-		return {}
 
 def sh_z(ast, args):
 	if len(args) != 0:
@@ -1270,14 +1235,6 @@ class LiteralString:
 				ret.add(i.compile())
 		return ret
 
-	def get_sens(self):
-		ret = {}
-		for i in self.value:
-			if type(i) == str:
-				continue
-			ret.update(i.get_sens())
-		return ret
-
 	def operator(self, op, op2):
 		return None
 
@@ -1370,14 +1327,6 @@ class Identifier:
 	def clone(self):
 		return Identifier(self.ast, self.name)
 
-	def replace_inout(self):
-		if self.is_inout():
-			self.do_replace_inout()
-		return self
-
-	def do_replace_inout(self):
-		self.name = f'_auto_{self.name}'
-
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
 
@@ -1417,9 +1366,6 @@ class Identifier:
 
 	def to_verilog_slice(self, dim):
 		return self.ref.to_verilog_slice(self.name, dim)
-
-	def get_sens(self):
-		return { self.name: None }
 
 @for_all_methods(wrap)
 class Number:
@@ -1564,9 +1510,6 @@ class Number:
 		ret += f'{{0:{self.base}}}'.format(self.to_int())
 		return ret
 
-	def get_sens(self):
-		return {}
-
 @for_all_methods(wrap)
 class String:
 	def __init__(self, ast, value):
@@ -1591,9 +1534,6 @@ class String:
 
 	def to_verilog(self):
 		return f'"{self.value}"'
-
-	def get_sens(self):
-		return {}
 
 @for_all_methods(wrap)
 class Block:
@@ -1637,12 +1577,6 @@ class Block:
 		ret = Formatter()
 		for i in self.body:
 			ret += i.to_verilog()
-		return ret
-
-	def get_sens(self):
-		ret = {}
-		for i in self.body:
-			ret.update(i.get_sens())
 		return ret
 
 @for_all_methods(wrap)
@@ -1777,7 +1711,7 @@ class Assign:
 
 	def compile(self):
 		ret = Assign(self.ast)
-		ret.set_lhs(self.lhs.compile().replace_inout())
+		ret.set_lhs(self.lhs.compile())
 		ret.set_rhs(self.rhs.compile())
 		ret.set_assign_type(self.assign_type)
 		return ret
@@ -1894,17 +1828,6 @@ class Assign:
 	def to_verilog(self):
 		return f'{self.lhs.to_verilog()} {self.assign_type} {self.rhs.to_verilog()};\n'
 
-	def get_sens(self):
-		# Put LHS into the sens-list so that this:
-		#   always @() a <= 1;
-		# would evaluate into this:
-		#   always @(a) a <= 1;
-		# Nobody complains about this so far.
-		ret = {}
-		ret.update(self.lhs.get_sens())
-		ret.update(self.rhs.get_sens())
-		return ret
-
 @for_all_methods(wrap)
 class Bus:
 	def __init__(self, ast):
@@ -1942,22 +1865,11 @@ class Bus:
 			self.item[i] = self.item[i].set_scope(src, sed)
 		return self
 
-	def replace_inout(self):
-		for i in self.item:
-			i.replace_inout()
-		return self
-
 	def operator(self, op, op2):
 		return None
 
 	def to_verilog(self):
 		return '{ ' + ', '.join([i.to_verilog() for i in self.item]) + ' }'
-
-	def get_sens(self):
-		ret = {}
-		for i in self.item:
-			ret.update(i.get_sens())
-		return ret
 
 @for_all_methods(wrap)
 class Replicate:
@@ -1985,12 +1897,6 @@ class Replicate:
 	def to_verilog(self):
 		item = '{ ' + ', '.join([i.to_verilog() for i in self.item]) + ' }'
 		return f'{{ {self.number.to_verilog()} {item} }}'
-
-	def get_sens(self):
-		ret = {}
-		for i in self.item:
-			ret.update(i.get_sens())
-		return ret
 
 @for_all_methods(wrap)
 class Operator:
@@ -2059,9 +1965,6 @@ class Unary:
 			ret += ')'
 		return ret
 
-	def get_sens(self):
-		return self.op1.get_sens()
-
 @for_all_methods(wrap)
 class Hier:
 	def __init__(self, ast):
@@ -2091,14 +1994,6 @@ class Hier:
 			ret.set_namespace(self.namespace.clone())
 		ret.set_field(self.field.clone())
 		return ret
-
-	def replace_inout(self):
-		if self.is_inout():
-			self.do_replace_inout()
-		return self
-
-	def do_replace_inout(self):
-		self.namespace.do_replace_inout()
 
 	def is_inout(self):
 		return self.ref.resolve().is_inout()
@@ -2142,9 +2037,6 @@ class Hier:
 
 	def to_verilog_slice(self, dim):
 		return self.ref.to_verilog_slice(self.namespace.resolve().to_verilog_hier(self.namespace, self.field), dim)
-
-	def get_sens(self):
-		return { self.namespace.resolve().to_verilog_hier(self.namespace, self.field): None }
 
 @for_all_methods(wrap)
 class Binary:
@@ -2211,12 +2103,6 @@ class Binary:
 		ret += self.op2.to_verilog()
 		if type(self.op2) in [Unary, Binary]:
 			ret += ')'
-		return ret
-
-	def get_sens(self):
-		ret = {}
-		ret.update(self.op1.get_sens())
-		ret.update(self.op2.get_sens())
 		return ret
 
 @for_all_methods(wrap)
@@ -2369,15 +2255,6 @@ class If:
 			ret += 'end'
 		return ret + '\n'
 
-	def get_sens(self):
-		ret = {}
-		ret.update(self.cond.get_sens())
-		if self.iftrue:
-			ret.update(self.iftrue.get_sens())
-		if self.iffalse:
-			ret.update(self.iffalse.get_sens())
-		return ret
-
 @for_all_methods(wrap)
 class Slice:
 	def __init__(self, ast):
@@ -2438,14 +2315,6 @@ class Slice:
 		ret.set_hilo(hilo)
 		return ret
 
-	def replace_inout(self):
-		if self.is_inout():
-			self.do_replace_inout()
-		return self
-
-	def do_replace_inout(self):
-		self.value.do_replace_inout()
-
 	def is_inout(self):
 		return self.value.is_inout()
 
@@ -2469,9 +2338,6 @@ class Slice:
 
 	def to_verilog_hier(self, namespace, field):
 		return self.value.to_verilog_hier(namespace, field)
-
-	def get_sens(self):
-		return { self.value.to_verilog_slice((self.hilo, None)): None }
 
 @for_all_methods(wrap)
 class Instance:
