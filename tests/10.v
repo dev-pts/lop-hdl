@@ -6,8 +6,15 @@ module SubModule(
 );
 	reg _auto_p;
 	assign p = _auto_p;
-	always @(y) begin
-		y <= 1;
+	/*verilator tracing_off*/
+	reg \y\0 ;
+	wire \y\0_sens  = 1;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\y\0  = \y\0_sens ;
+	end
+	always @(*) begin
+		y = \y\0 ;
 	end
 endmodule
 
@@ -33,14 +40,35 @@ module test(
 	reg [1 * 8 - 1:0] str_d;
 	reg [2:0] f [1:0];
 	reg [1 * 8 - 1:0] str_f [1:0];
-	always @(d, str_d, f[0], str_f[0], b__z, c, d[2], f[0][2]) begin
-		d <= 4;
-		str_d <= "C";
-		f[0] <= 2;
-		str_f[0] <= "B";
-		b__z <= 16;
-		c <= d[2];
-		c <= f[0][2];
+	/*verilator tracing_off*/
+	reg \d\0 ;
+	wire [2:0] \d\0_sens  = 4;
+	reg [2:0] \str_d\1 ;
+	reg \f[0]\2 ;
+	wire [1:0] \f[0]\2_sens  = 2;
+	reg [2:0] \str_f[0]\3 ;
+	reg \b__z\4 ;
+	wire [4:0] \b__z\4_sens  = 16;
+	reg \c\5 ;
+	reg \c\6 ;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\d\0  = \d\0_sens ;
+		\str_d\1  = "C";
+		\f[0]\2  = \f[0]\2_sens ;
+		\str_f[0]\3  = "B";
+		\b__z\4  = \b__z\4_sens ;
+		\c\5  = d[2];
+		\c\6  = f[0][2];
+	end
+	always @(*) begin
+		d = \d\0 ;
+		str_d = \str_d\1 ;
+		f[0] = \f[0]\2 ;
+		str_f[0] = \str_f[0]\3 ;
+		b__z = \b__z\4 ;
+		c = \c\5 ;
+		c = \c\6 ;
 	end
 endmodule
 

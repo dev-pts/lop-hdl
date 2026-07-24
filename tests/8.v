@@ -7,8 +7,15 @@ module test(
 	reg _auto_c;
 	assign c = _auto_c;
 	reg d;
-	always @(b) begin
-		b <= 1;
+	/*verilator tracing_off*/
+	reg \b\0 ;
+	wire \b\0_sens  = 1;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\b\0  = \b\0_sens ;
+	end
+	always @(*) begin
+		b = \b\0 ;
 	end
 	always @(posedge a) begin
 		d <= 1;

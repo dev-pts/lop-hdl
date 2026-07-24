@@ -6,8 +6,15 @@ module SubModule(
 );
 	reg _auto_p;
 	assign p = _auto_p;
-	always @(y) begin
-		y <= 1;
+	/*verilator tracing_off*/
+	reg [2:0] \y\0 ;
+	wire \y\0_sens  = 1;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\y\0  = \y\0_sens ;
+	end
+	always @(*) begin
+		y = \y\0 ;
 	end
 endmodule
 
@@ -35,8 +42,15 @@ module test();
 		.y(b_1__y)
 	);
 	reg [1:0] k [2:0];
-	always @(b_0__z) begin
-		b_0__z <= 16;
+	/*verilator tracing_off*/
+	reg [1:0] \b_0__z\0 ;
+	wire [4:0] \b_0__z\0_sens  = 16;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\b_0__z\0  = \b_0__z\0_sens ;
+	end
+	always @(*) begin
+		b_0__z = \b_0__z\0 ;
 	end
 endmodule
 

@@ -229,25 +229,65 @@ module test(
 		.h_2__d__a(d_1__h_2__d__a),
 		.h_2__d__b(d_1__h_2__d__b)
 	);
-	always @(a__c, b2__c, a__d__b, b2__d__b, b2__d__a, a__d__a, c__e__d__a, c__f__d__a, c__f__c, c__e__c, c__f__d__b, c__e__d__b, c__g_0__d__a, c__h_1__d__a, c__h_1__c, c__g_0__c, c__h_1__d__b, c__g_0__d__b, d_1__g_0__d__a, d_0__h_1__d__a, d_0__h_1__d__b, d_1__g_0__d__b, a2__d__a, a2__c, a2__d__b) begin
-		a__c <= b2__c;
-		a__d__b <= b2__d__b;
-		b2__d__a <= a__d__a;
-		c__e__d__a <= c__f__d__a;
-		c__f__c <= c__e__c;
-		c__f__d__b <= c__e__d__b;
-		c__e__d__a <= c__f__d__a;
-		c__f__d__b <= c__e__d__b;
-		c__g_0__d__a <= c__h_1__d__a;
-		c__h_1__c <= c__g_0__c;
-		c__h_1__d__b <= c__g_0__d__b;
-		c__g_0__d__a <= c__h_1__d__a;
-		c__h_1__d__b <= c__g_0__d__b;
-		d_1__g_0__d__a <= d_0__h_1__d__a;
-		d_0__h_1__d__b <= d_1__g_0__d__b;
-		c__e__d__a <= a2__d__a;
-		a2__c <= c__e__c;
-		a2__d__b <= c__e__d__b;
+	/*verilator tracing_off*/
+	reg \a__c\0 ;
+	reg [9:0] \a__d__b\1 ;
+	reg \b2__d__a\2 ;
+	reg \c__e__d__a\3 ;
+	reg \c__f__c\4 ;
+	reg [1:0] \c__f__d__b\5 ;
+	reg \c__e__d__a\6 ;
+	reg [1:0] \c__f__d__b\7 ;
+	reg \c__g_0__d__a\8 ;
+	reg \c__h_1__c\9 ;
+	reg [4:0] \c__h_1__d__b\10 ;
+	reg \c__g_0__d__a\11 ;
+	reg [4:0] \c__h_1__d__b\12 ;
+	reg \d_1__g_0__d__a\13 ;
+	reg [5:0] \d_0__h_1__d__b\14 ;
+	reg \c__e__d__a\15 ;
+	reg \a2__c\16 ;
+	reg [1:0] \a2__d__b\17 ;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\a__c\0  = b2__c;
+		\a__d__b\1  = b2__d__b;
+		\b2__d__a\2  = a__d__a;
+		\c__e__d__a\3  = c__f__d__a;
+		\c__f__c\4  = c__e__c;
+		\c__f__d__b\5  = c__e__d__b;
+		\c__e__d__a\6  = c__f__d__a;
+		\c__f__d__b\7  = c__e__d__b;
+		\c__g_0__d__a\8  = c__h_1__d__a;
+		\c__h_1__c\9  = c__g_0__c;
+		\c__h_1__d__b\10  = c__g_0__d__b;
+		\c__g_0__d__a\11  = c__h_1__d__a;
+		\c__h_1__d__b\12  = c__g_0__d__b;
+		\d_1__g_0__d__a\13  = d_0__h_1__d__a;
+		\d_0__h_1__d__b\14  = d_1__g_0__d__b;
+		\c__e__d__a\15  = a2__d__a;
+		\a2__c\16  = c__e__c;
+		\a2__d__b\17  = c__e__d__b;
+	end
+	always @(*) begin
+		a__c = \a__c\0 ;
+		a__d__b = \a__d__b\1 ;
+		b2__d__a = \b2__d__a\2 ;
+		c__e__d__a = \c__e__d__a\3 ;
+		c__f__c = \c__f__c\4 ;
+		c__f__d__b = \c__f__d__b\5 ;
+		c__e__d__a = \c__e__d__a\6 ;
+		c__f__d__b = \c__f__d__b\7 ;
+		c__g_0__d__a = \c__g_0__d__a\8 ;
+		c__h_1__c = \c__h_1__c\9 ;
+		c__h_1__d__b = \c__h_1__d__b\10 ;
+		c__g_0__d__a = \c__g_0__d__a\11 ;
+		c__h_1__d__b = \c__h_1__d__b\12 ;
+		d_1__g_0__d__a = \d_1__g_0__d__a\13 ;
+		d_0__h_1__d__b = \d_0__h_1__d__b\14 ;
+		c__e__d__a = \c__e__d__a\15 ;
+		a2__c = \a2__c\16 ;
+		a2__d__b = \a2__d__b\17 ;
 	end
 endmodule
 

@@ -8,8 +8,15 @@ module SubModule_Z_10_B2_5(
 	localparam B2 = 5;
 	reg _auto_p;
 	assign p = _auto_p;
-	always @(y) begin
-		y <= 1;
+	/*verilator tracing_off*/
+	reg [9:0] \y\0 ;
+	wire \y\0_sens  = 1;
+	/*verilator tracing_on*/
+	always @(*) begin
+		\y\0  = \y\0_sens ;
+	end
+	always @(*) begin
+		y = \y\0 ;
 	end
 endmodule
 
