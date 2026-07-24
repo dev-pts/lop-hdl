@@ -3511,7 +3511,10 @@ expr:
 hier:
 	binary: @hier
 		operator: '.'
-		$expr: @hier_set_namespace
+		oneof: @hier_set_namespace
+			$identifier
+			$slice
+			$hier
 		identifier: @hier_set_field
 
 identifier:
@@ -3598,7 +3601,10 @@ class ParseSystem:
 @parser("""
 slice:
 	aref: @slice_create
-		$expr: @slice_set_value
+		oneof: @slice_set_value
+			$identifier
+			$slice
+			$hier
 		oneof: @slice_set_hilo
 			binary: @range_create
 				operator: '..'
