@@ -548,13 +548,16 @@ class Module:
 		self.scope.add(arg)
 
 	def add_initial(self, arg):
-		self.initial.append(arg)
+		if type(arg) != Empty:
+			self.initial.append(arg)
 
 	def add_comb(self, arg):
-		self.comb.append(arg)
+		if type(arg) != Empty:
+			self.comb.append(arg)
 
 	def add_sync(self, arg):
-		self.sync.append(arg)
+		if type(arg) != Empty:
+			self.sync.append(arg)
 
 	def compile(self, param=Scope()):
 		ret = Module()
@@ -1283,9 +1286,6 @@ class Empty:
 	def get_sens(self):
 		return {}
 
-	def to_verilog(self):
-		return ''
-
 @for_all_methods(wrap)
 class System:
 	def __init__(self, ast):
@@ -1555,7 +1555,8 @@ class Block:
 		self.body = []
 
 	def add(self, arg):
-		self.body.append(arg)
+		if type(arg) != Empty:
+			self.body.append(arg)
 
 	def compile(self):
 		ret = Block(self.ast)
@@ -2125,10 +2126,16 @@ class If:
 		self.cond = i
 
 	def set_iftrue(self, arg):
-		self.iftrue = arg
+		if type(arg) == Empty:
+			self.iftrue = None
+		else:
+			self.iftrue = arg
 
 	def set_iffalse(self, arg):
-		self.iffalse = arg
+		if type(arg) == Empty:
+			self.iffalse = None
+		else:
+			self.iffalse = arg
 
 	def compile(self):
 		cond = self.cond.compile()
@@ -2162,17 +2169,17 @@ class If:
 	def add_scope(self, exc):
 		self.cond = self.cond.add_scope(exc)
 		if self.iftrue:
-			self.iftrue = self.iftrue.add_scope(exc)
+			self.set_iftrue(self.iftrue.add_scope(exc))
 		if self.iffalse:
-			self.iffalse = self.iffalse.add_scope(exc)
+			self.set_iffalse(self.iffalse.add_scope(exc))
 		return self
 
 	def set_scope(self, src, sed):
 		self.cond = self.cond.set_scope(src, sed)
 		if self.iftrue:
-			self.iftrue = self.iftrue.set_scope(src, sed)
+			self.set_iftrue(self.iftrue.set_scope(src, sed))
 		if self.iffalse:
-			self.iffalse = self.iffalse.set_scope(src, sed)
+			self.set_iffalse(self.iffalse.set_scope(src, sed))
 		return self
 
 	def operator(self, op, op2):
