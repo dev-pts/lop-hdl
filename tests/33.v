@@ -24,13 +24,13 @@ module test(
 	reg \a\0 ;
 	wire \a\0_sens  = 1;
 	reg [4:0] \{a,e,c_0__a__a}\1 ;
-	wire \{a,e,c_0__a__a}\1_sens  = 1;
+	wire [4:0] \{a,e,c_0__a__a}\1_sens  = 1;
 	reg [2:0] \b__a\2 ;
-	wire \b__a\2_sens  = 1;
+	wire [2:0] \b__a\2_sens  = 1;
 	reg [2:0] \c_1__a__a\3 ;
-	wire \c_1__a__a\3_sens  = 1;
+	wire [2:0] \c_1__a__a\3_sens  = 1;
 	reg [3:0] \f_0\4 ;
-	wire \f_0\4_sens  = 1;
+	wire [3:0] \f_0\4_sens  = 1;
 	reg _auto_a;
 	reg [2:0] _auto_c_0__a__a;
 	reg [2:0] _auto_b__a;

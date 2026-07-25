@@ -6,7 +6,7 @@ module SubModule(
 );
 	/*verilator tracing_off*/
 	reg [2:0] \y\0 ;
-	wire \y\0_sens  = 1;
+	wire [2:0] \y\0_sens  = 1;
 	/*verilator tracing_on*/
 	always @(*) begin
 		\y\0  = \y\0_sens ;
@@ -42,7 +42,7 @@ module test();
 	wire [1:0] k [2:0];
 	/*verilator tracing_off*/
 	reg [1:0] \b_0__z\0 ;
-	wire [4:0] \b_0__z\0_sens  = 16;
+	wire [1:0] \b_0__z\0_sens  = 16;
 	/*verilator tracing_on*/
 	always @(*) begin
 		\b_0__z\0  = \b_0__z\0_sens ;

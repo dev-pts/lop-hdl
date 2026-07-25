@@ -38,13 +38,13 @@ module test(
 	reg [1 * 8 - 1:0] str_f [1:0];
 	/*verilator tracing_off*/
 	reg \d\0 ;
-	wire [2:0] \d\0_sens  = 4;
+	wire \d\0_sens  = 4;
 	reg [2:0] \str_d\1 ;
 	reg \f[0]\2 ;
-	wire [1:0] \f[0]\2_sens  = 2;
+	wire \f[0]\2_sens  = 2;
 	reg [2:0] \str_f[0]\3 ;
 	reg \b__z\4 ;
-	wire [4:0] \b__z\4_sens  = 16;
+	wire \b__z\4_sens  = 16;
 	reg \c\5 ;
 	reg \c\6 ;
 	/*verilator tracing_on*/

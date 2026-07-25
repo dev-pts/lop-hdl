@@ -5,7 +5,7 @@ module test();
 	reg d [1:0];
 	/*verilator tracing_off*/
 	reg [2:0] \a\0 ;
-	wire \a\0_sens  = 0;
+	wire [2:0] \a\0_sens  = 0;
 	reg [4:0] \{a,c}\1 ;
 	reg \{a,c}\1_we ;
 	reg \d[1]\2 ;

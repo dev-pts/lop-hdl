@@ -1825,7 +1825,7 @@ class Assign:
 			net_sens.set_value(self.rhs)
 
 			arr_sens = Array(self.ast)
-			arr_sens.set_width(dim_to_width(self.rhs.dim()))
+			arr_sens.set_width(dim_to_width(self.lhs.dim()))
 			arr_sens.set_value(net_sens)
 
 			symbol_sens = Symbol(self.ast)
