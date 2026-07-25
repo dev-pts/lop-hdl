@@ -6,8 +6,6 @@ module SubModule_Z_10_B2_5(
 );
 	localparam Z = 10;
 	localparam B2 = 5;
-	reg _auto_p;
-	assign p = _auto_p;
 	/*verilator tracing_off*/
 	reg [9:0] \y\0 ;
 	wire \y\0_sens  = 1;

@@ -4,8 +4,6 @@ module test(
 	inout wire c
 );
 	localparam A = 1;
-	reg _auto_c;
-	assign c = _auto_c;
 	reg d;
 endmodule
 

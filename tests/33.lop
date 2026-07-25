@@ -1,6 +1,6 @@
 module: SubModule
 	port:
-		a: inout
+		a: inout[4]
 
 interface: Intf
 	port: Master / Slave
@@ -20,7 +20,7 @@ module: test
 	submodule:
 		d: SubModule
 
-	$bind(d.a, a)
+	$bind(d.a, f[1])
 
 	a = 1
 	{ a, e, c[0].a.a } = 1

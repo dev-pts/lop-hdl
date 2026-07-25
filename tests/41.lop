@@ -1,0 +1,15 @@
+module: test
+	local:
+		a: net[3]
+		b: net
+		c: net[2]
+		d[2]: net
+
+	a = 0
+	if: b
+		{ a, c } = 5{ b }
+		if: 0
+			a = 1
+
+	\\ unoptflat warning from verilator...
+	d[1] = d[0] | b

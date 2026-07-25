@@ -457,22 +457,6 @@ class InterfaceInstance:
 			ret.extend(i.resolve().get_ports(filter_dir, Hier(src.ast).set_namespace(src).set_field(Identifier(src.ast, i.name))))
 		return ret
 
-	def get_inouts(self, name, shape=(None, None)):
-		ret = Formatter()
-		count, _ = shape
-
-		for i in self.inst.port:
-			if count:
-				if count.to_int() == 0:
-					raise Exception()
-				if count.to_int() > 1:
-					for j in range(count.to_int()):
-						ret += i.resolve().get_inouts(f'{name}_{j}__{i.name}')
-			else:
-				ret += i.resolve().get_inouts(f'{name}__{i.name}')
-
-		return ret
-
 	def get_port_name(self, name, filt, shape=(None, None)):
 		ret = []
 		count, _ = shape
@@ -597,6 +581,28 @@ class Module:
 		if type(arg) != Empty:
 			self.assign.append(arg)
 
+	def fix_inout(self, src, ref):
+		name = f'_auto_{src.to_verilog()}'
+		if SCOPE.lookup_try(name) != None:
+			return
+
+		count, width = ref.dim()
+
+		net = Net(src.ast)
+		if width and width and width.to_int() == 1:
+			sv = net
+		else:
+			sv = Array(src.ast)
+			sv.set_width(width)
+			sv.set_value(net)
+		symbol = Symbol(src.ast)
+		symbol.set_name(name)
+		symbol.set_value(sv)
+
+		self.add_hidden_local(symbol)
+
+		self.add_assign(Assign(src.ast, '=').set_lhs(src).set_rhs(Identifier(src.ast, name)).compile())
+
 	def compile(self, param=Scope()):
 		ret = Module()
 
@@ -626,16 +632,28 @@ class Module:
 
 		for i in self.initial:
 			ret.add_initial(i.compile())
-
 		for i in self.comb[0]:
 			ret.add_comb(i.compile())
 		for i in self.sync:
 			ret.add_sync(i.compile())
 
-		tmp = ret.comb[0]
-		ret.comb[0] = []
-		for i in tmp:
-			ret.add_comb(i.split_always_comb(ret, True))
+		if True:
+			tmp = ret.comb[0]
+			ret.comb[0] = []
+			for i in tmp:
+				ret.add_comb(i.split_always_comb(ret, True))
+
+		# Put it after split_always_comb() because of
+		# some missing namespace with '_auto' prefix...
+		if True:
+			for i in ret.initial:
+				i.replace_inout(ret)
+			for i in ret.comb[0]:
+				i.replace_inout(ret)
+			for i in ret.comb[1]:
+				i.replace_inout(ret)
+			for i in ret.sync:
+				i.replace_inout(ret)
 
 		SCOPE.pop()
 		return ret
@@ -657,9 +675,6 @@ class Module:
 			ret += f'localparam {i.name} = {i.value.to_verilog()};\n'
 		for i in self.const:
 			ret += f'localparam {i.name} = {i.value.to_verilog()};\n'
-
-		for i in self.port:
-			ret += i.value.get_inouts(i.name)
 
 		for i in self.assign:
 			ret += f'assign {i.to_verilog()}'
@@ -748,21 +763,8 @@ class Port:
 			return [src]
 		return []
 
-	def get_inouts(self, name, shape=(None, None)):
-		if self.dir != 'inout':
-			return None
-
-		count, width = shape
-
-		ret = Formatter()
-		if count and count.to_int() > 1:
-			for i in range(count.to_int()):
-				ret += self._to_verilog_one('reg ', f'_auto_{name}', width, i) + ';\n'
-				ret += f'assign {name}_{i} = _auto_{name}_{i};\n'
-		else:
-			ret += self._to_verilog_one('reg ', f'_auto_{name}', width, None) + ';\n'
-			ret += f'assign {name} = _auto_{name};\n'
-		return ret
+	def replace_inout(self, parent):
+		pass
 
 	def get_port_name(self, name, filt, shape=(None, None)):
 		if self.dir not in filt:
@@ -1020,9 +1022,6 @@ class Array:
 	def is_instance(self):
 		return self.value.is_instance()
 
-	def get_inouts(self, name):
-		return self.value.get_inouts(name, self.shape)
-
 	def get_port_name(self, name, filt):
 		return self.value.get_port_name(name, filt, self.shape)
 
@@ -1270,6 +1269,9 @@ class LiteralString:
 				ret.add(i.compile())
 		return ret
 
+	def replace_inout(self, parent):
+		pass
+
 	def operator(self, op, op2):
 		return None
 
@@ -1359,10 +1361,10 @@ class Identifier:
 	def clone(self):
 		return Identifier(self.ast, self.name)
 
-	def replace_inout(self):
+	def replace_inout(self, parent):
 		if self.is_inout():
+			parent.fix_inout(self, self.resolve())
 			self.do_replace_inout()
-		return self
 
 	def do_replace_inout(self):
 		self.name = f'_auto_{self.name}'
@@ -1592,6 +1594,10 @@ class Block:
 			ret.add(i.compile())
 		return ret
 
+	def replace_inout(self, parent):
+		for i in self.body:
+			i.replace_inout(parent)
+
 	def split_always_comb(self, parent, toplevel):
 		for i in range(len(self.body)):
 			self.body[i] = self.body[i].split_always_comb(parent, toplevel)
@@ -1715,6 +1721,10 @@ class Sync:
 			ret.add(i.compile())
 		return ret
 
+	def replace_inout(self, parent):
+		for i in self.body:
+			i.replace_inout(parent)
+
 	def to_verilog(self):
 		ret = Formatter()
 		ret += 'always @('
@@ -1751,10 +1761,13 @@ class Assign:
 
 	def compile(self):
 		ret = Assign(self.ast)
-		ret.set_lhs(self.lhs.compile().replace_inout())
+		ret.set_lhs(self.lhs.compile())
 		ret.set_rhs(self.rhs.compile())
 		ret.set_assign_type(self.assign_type)
 		return ret
+
+	def replace_inout(self, parent):
+		self.lhs.replace_inout(parent)
 
 	def split_always_comb(self, parent, toplevel):
 		width = dim_to_width(self.lhs.dim())
@@ -1905,10 +1918,9 @@ class Bus:
 			self.item[i] = self.item[i].set_scope(src, sed)
 		return self
 
-	def replace_inout(self):
+	def replace_inout(self, parent):
 		for i in self.item:
-			i.replace_inout()
-		return self
+			i.replace_inout(parent)
 
 	def operator(self, op, op2):
 		return None
@@ -2040,10 +2052,10 @@ class Hier:
 		ret.set_field(self.field.clone())
 		return ret
 
-	def replace_inout(self):
+	def replace_inout(self, parent):
 		if self.is_inout():
+			parent.fix_inout(self, self.resolve())
 			self.do_replace_inout()
-		return self
 
 	def do_replace_inout(self):
 		self.namespace.do_replace_inout()
@@ -2254,6 +2266,12 @@ class If:
 			ret.set_iffalse(self.iffalse.compile())
 		return ret
 
+	def replace_inout(self, parent):
+		if self.iftrue:
+			self.iftrue.replace_inout(parent)
+		if self.iffalse:
+			self.iffalse.replace_inout(parent)
+
 	def split_always_comb(self, parent, toplevel):
 		if self.iftrue:
 			self.set_iftrue(self.iftrue.split_always_comb(parent, False))
@@ -2368,10 +2386,13 @@ class Slice:
 		ret.set_hilo(hilo)
 		return ret
 
-	def replace_inout(self):
+	def replace_inout(self, parent):
 		if self.is_inout():
+			# Filter-out slices on width...
+			count, width = self.resolve().dim()
+			if count != None and self.dim():
+				parent.fix_inout(self, self.resolve())
 			self.do_replace_inout()
-		return self
 
 	def do_replace_inout(self):
 		self.value.do_replace_inout()

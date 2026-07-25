@@ -4,8 +4,6 @@ module SubModule(
 	input wire [1:0] z,
 	output reg [2:0] y
 );
-	reg _auto_p;
-	assign p = _auto_p;
 	/*verilator tracing_off*/
 	reg [2:0] \y\0 ;
 	wire \y\0_sens  = 1;
