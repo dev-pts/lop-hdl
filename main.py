@@ -1182,11 +1182,15 @@ def sh_connect(ast, args):
 def sh_number(ast, args):
 	return Number(ast, args[0].to_int(), args[1].to_int(), args[2].value)
 
+def sh_width(ast, args):
+	return dim_to_width(args[0].dim())
+
 system['z'] = sh_z
 system['goto'] = sh_goto
 system['bind'] = sh_bind
 system['connect'] = sh_connect
 system['number'] = sh_number
+system['width'] = sh_width
 
 # math.ceil() here is needed, because usually we want it to fit into our desired max number
 def sh_clog2(ast, args):

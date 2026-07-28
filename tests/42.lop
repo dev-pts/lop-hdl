@@ -10,7 +10,7 @@ module: test
 	port:
 		a: inout
 		b: inout[3]
-		c[2]: inout[3]
+		c[2]: inout[$width(g[0].a)]
 		d: inout
 		f: Intf.Master
 		g[2]: Intf.Master
