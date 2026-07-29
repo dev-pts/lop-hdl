@@ -2,7 +2,7 @@ module test();
 	reg a__b;
 	wire a__c;
 	Ext #(
-		.P1(20),
+		.P1(20.0),
 		.P2(24)
 	) a(
 		.b(a__b),

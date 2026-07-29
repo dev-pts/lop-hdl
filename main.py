@@ -1341,11 +1341,28 @@ class System:
 	def add_arg(self, arg):
 		self.args.append(arg)
 
+	def clone(self):
+		ret = System(self.ast)
+		ret.set_func(self.func)
+		for i in self.args:
+			ret.add_arg(i.clone())
+		return ret
+
 	def compile(self):
 		args = []
 		for i in self.args:
 			args.append(i.compile())
 		return self.func(self.ast, args)
+
+	def add_scope(self, exc):
+		for i in range(len(self.args)):
+			self.args[i] = self.args[i].add_scope(exc)
+		return self
+
+	def set_scope(self, src, sed):
+		for i in range(len(self.args)):
+			self.args[i] = self.args[i].set_scope(src, sed)
+		return self
 
 @for_all_methods(wrap)
 class Identifier:
@@ -1423,27 +1440,32 @@ class Number:
 		self.svalue = None
 		self.ibase = None
 
-		try:
-			self.value = int(self.value)
-			if not self.width:
-				self.width = self.value.bit_length()
-			if self.base:
+		if type(self.value) == str:
+			try:
+				self.width, self.base, self.svalue = re.findall(r'([0-9][_0-9]*)([bodx])([0-9a-f_]+)', self.value, re.IGNORECASE)[0]
+
+				self.width = int(self.width)
 				self.set_ibase()
-			return
-		except:
-			pass
 
-		try:
-			self.value = float(self.value)
-			self.width = 1 << (sys.float_info.mant_dig).bit_length()
-			return
-		except:
-			pass
+				if self.width == 0:
+					self.value = int(self.value, self.ibase)
+				return
+			except:
+				pass
 
-		self.width, self.base, self.svalue = re.findall(r'([0-9][_0-9]*)(.)([0-9a-f_]+)', self.value, re.IGNORECASE)[0]
+		if type(self.value) != float:
+			try:
+				self.value = int(self.value)
+				if not self.width:
+					self.width = self.value.bit_length()
+				if self.base:
+					self.set_ibase()
+				return
+			except:
+				pass
 
-		self.width = int(self.width)
-		self.set_ibase()
+		self.value = float(self.value)
+		self.width = 1 << (sys.float_info.mant_dig).bit_length()
 
 	def set_ibase(self):
 		if self.base == 'b':
@@ -1486,6 +1508,15 @@ class Number:
 
 	def slice(self, hi, lo):
 		value = self.to_int()
+		width = dim_to_width(self.dim()).to_int()
+
+		if hi < 0:
+			hi += width
+		if lo < 0:
+			lo += width
+
+		hi = max(0, min(width, hi))
+		lo = max(0, min(width, lo))
 
 		return Number(self.ast, (value >> lo) & ((1 << (hi - lo + 1)) - 1))
 
@@ -2217,6 +2248,12 @@ class Range:
 		self.lo = ret2
 		return self
 
+	def clone(self):
+		ret = Range(self.ast)
+		ret.set_hi(self.hi.clone())
+		ret.set_lo(self.lo.clone())
+		return ret
+
 	def compile(self):
 		ret = Range(self.ast)
 		ret.set_hi(self.hi.compile())
@@ -2346,6 +2383,12 @@ class Slice:
 	def dim(self):
 		return self.value.dim()[1:]
 
+	def clone(self):
+		ret = Slice(self.ast)
+		ret.set_value(self.value.clone())
+		ret.set_hilo(self.hilo.clone())
+		return ret
+
 	def compile(self):
 		hilo = self.hilo.compile()
 		value = self.value.compile()
@@ -2415,6 +2458,14 @@ class Slice:
 
 	def is_instance(self):
 		return self.value.is_instance()
+
+	def add_scope(self, exc):
+		self.set_value(self.value.add_scope(exc))
+		return self
+
+	def set_scope(self, src, sed):
+		self.set_value(self.value.set_scope(src, sed))
+		return self
 
 	def to_verilog(self):
 		return self.value.to_verilog_slice((self.hilo, None))
@@ -3725,10 +3776,7 @@ class ParseSystem:
 @parser("""
 slice:
 	aref: @slice_create
-		oneof: @slice_set_value
-			$identifier
-			$slice
-			$hier
+		$expr: @slice_set_value
 		oneof: @slice_set_hilo
 			binary: @range_create
 				operator: '..'

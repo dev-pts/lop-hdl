@@ -1,0 +1,18 @@
+registers: TestRegs
+	push: 0x0, W
+	full: 0x1, R
+
+interface: Bus
+	port: Master / Slave
+		addr: net[32]: out / in
+	macros:
+		hit(reg, offset) = addr[-1 .. 2] == ($regaddr(reg)[-1 .. 2] + offset)
+
+module: test
+	port:
+		bus: Bus.Master
+	regs:
+		regs: TestRegs
+
+	if: @bus.hit(regs.push, 0)
+	if: @bus.hit(regs.full, 0)
