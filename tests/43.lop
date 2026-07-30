@@ -25,4 +25,4 @@ module: test
 	if: @bus.hit(regs.pop, 0)
 
 	@bus.read(regs.push)
-	if: @bus.write(regs.push)
+	if: @bus.write(regs.full)

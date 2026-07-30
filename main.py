@@ -1525,7 +1525,7 @@ class Number:
 		if lo < 0:
 			lo += width
 
-		if lo < 0 or hi < 0 or width <= lo or width <= hi or hi < lo:
+		if width <= lo or hi < lo:
 			return Number(self.ast, 0)
 
 		return Number(self.ast, (value >> lo) & ((1 << (hi - lo + 1)) - 1))
