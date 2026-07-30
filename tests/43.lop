@@ -21,8 +21,28 @@ module: test
 		regs: TestRegs
 
 	if: @bus.hit(regs.push, 0)
+		bus.addr = 0
 	if: @bus.hit(regs.full, 0)
+		bus.addr = 0
 	if: @bus.hit(regs.pop, 0)
+		bus.addr = 0
 
 	@bus.read(regs.push)
 	if: @bus.write(regs.full)
+		bus.addr = 3
+
+	if: @bus.write(regs.full)
+		if: @bus.write(regs.full)
+			if: @bus.write(regs.full)
+				bus.addr = 0
+
+	if: @bus.write(regs.full)
+		if: @bus.write(regs.full)
+			if: @bus.write(regs.full)
+
+	for: i < 3
+		if: @bus.write(regs.full)
+			for: i < 3
+				if: @bus.write(regs.full)
+					if: @bus.write(regs.full)
+						if: @bus.write(regs.full)

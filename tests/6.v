@@ -4,9 +4,5 @@ module test(
 	inout wire c
 );
 	localparam A = 1;
-	always @(*) begin
-		if (a) begin
-		end
-	end
 endmodule
 

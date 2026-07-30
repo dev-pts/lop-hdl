@@ -1637,6 +1637,8 @@ class Block:
 		ret = Block(self.ast)
 		for i in self.body:
 			ret.add(i.compile())
+		if not ret.body:
+			return Empty()
 		return ret
 
 	def replace_inout(self, parent):
@@ -1738,7 +1740,7 @@ class For:
 
 			it.value.value += 1
 
-		return ret
+		return ret.compile()
 
 	def add_scope(self, exc):
 		name = self._it_name()
@@ -2364,6 +2366,8 @@ class If:
 			ret.set_iftrue(self.iftrue.compile())
 		if self.iffalse:
 			ret.set_iffalse(self.iffalse.compile())
+		if not ret.iftrue and not ret.iffalse:
+			return Empty()
 		return ret
 
 	def replace_inout(self, parent):
