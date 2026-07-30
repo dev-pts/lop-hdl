@@ -285,10 +285,14 @@ class MacroCall:
 
 	def add_scope(self, exc):
 		self.func = self.func.add_scope(exc)
+		for i in range(len(self.param)):
+			self.param[i] = self.param[i].add_scope(exc)
 		return self
 
 	def set_scope(self, src, sed):
 		self.func.set_scope(src, sed)
+		for i in range(len(self.param)):
+			self.param[i] = self.param[i].set_scope(src, sed)
 		return self
 
 @for_all_methods(wrap)
