@@ -3,6 +3,7 @@ module test(
 );
 	reg [7:0] regs__push;
 	reg [7:0] regs__full;
+	reg [7:0] regs__pop;
 	/*verilator tracing_off*/
 	reg [7:0] \regs__push\0 ;
 	wire [7:0] \regs__push\0_sens  = 0;
@@ -32,6 +33,8 @@ module test(
 	always @(*) begin
 		if (bus__addr[31:2] == 0) begin
 		end
+		if (bus__addr[31:2] == 0) begin
+		end
 		if (bus__addr[31:2] == 1) begin
 		end
 		\regs__push\0  = \regs__push\0_sens ;
@@ -46,6 +49,8 @@ module test(
 		\regs__push\9  = \regs__push\9_sens ;
 		\regs__push\10  = \regs__push\10_sens ;
 		\regs__push\11  = \regs__push\11_sens ;
+		if (bus__addr[0]) begin
+		end
 	end
 	always @(*) begin
 		regs__push = \regs__push\0 ;

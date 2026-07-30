@@ -1447,8 +1447,10 @@ class Number:
 				self.width = int(self.width)
 				self.set_ibase()
 
+				self.value = int(self.svalue, self.ibase)
+
 				if self.width == 0:
-					self.value = int(self.value, self.ibase)
+					self.width = self.value.bit_length()
 				return
 			except:
 				pass
@@ -1508,6 +1510,10 @@ class Number:
 
 	def slice(self, hi, lo):
 		value = self.to_int()
+
+		if value == 0:
+			return self
+
 		width = dim_to_width(self.dim()).to_int()
 
 		if hi < 0:
@@ -1515,8 +1521,8 @@ class Number:
 		if lo < 0:
 			lo += width
 
-		hi = max(0, min(width, hi))
-		lo = max(0, min(width, lo))
+		if lo < 0 or hi < 0 or width <= lo or width <= hi or hi < lo:
+			return Number(self.ast, 0)
 
 		return Number(self.ast, (value >> lo) & ((1 << (hi - lo + 1)) - 1))
 
@@ -2288,6 +2294,16 @@ class Range:
 		ret.set_lo(self.lo.compile())
 		return ret
 
+	def add_scope(self, exc):
+		self.set_hi(self.hi.add_scope(exc))
+		self.set_lo(self.lo.add_scope(exc))
+		return self
+
+	def set_scope(self, src, sed):
+		self.set_hi(self.hi.set_scope(src, sed))
+		self.set_lo(self.lo.set_scope(src, sed))
+		return self
+
 	def to_verilog(self):
 		return f'{self.hi.to_verilog()}:{self.lo.to_verilog()}'
 
@@ -2489,10 +2505,12 @@ class Slice:
 
 	def add_scope(self, exc):
 		self.set_value(self.value.add_scope(exc))
+		self.set_hilo(self.hilo.add_scope(exc))
 		return self
 
 	def set_scope(self, src, sed):
 		self.set_value(self.value.set_scope(src, sed))
+		self.set_hilo(self.hilo.set_scope(src, sed))
 		return self
 
 	def to_verilog(self):
