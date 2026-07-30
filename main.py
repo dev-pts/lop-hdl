@@ -1689,9 +1689,17 @@ class For:
 
 	def _it_name(self):
 		if type(self.it) == Identifier:
-			return self.it.name, None
+			return self.it.name
 		elif type(self.it) == Binary:
-			return self.it.op1.name, self.it.op2.to_int()
+			return self.it.op1.name
+		else:
+			raise Exception()
+
+	def _it_count(self):
+		if type(self.it) == Identifier:
+			return None
+		elif type(self.it) == Binary:
+			return self.it.op2.compile().to_int()
 		else:
 			raise Exception()
 
@@ -1700,11 +1708,12 @@ class For:
 			ret = Bus(self.ast)
 		else:
 			ret = Block(self.ast)
-		name, count = self._it_name()
 
 		it = Symbol(self.ast)
 		it.set_value(Number(self.ast, 0))
-		it.set_name(name)
+		it.set_name(self._it_name())
+
+		count = self._it_count()
 
 		while True:
 			if count != None:
@@ -1728,21 +1737,23 @@ class For:
 		return ret
 
 	def add_scope(self, exc):
-		name, _ = self._it_name()
+		name = self._it_name()
 
 		exc = { **exc }
 		exc[name] = None
 
+		self.set_it(self.it.add_scope(exc))
 		for i in range(len(self.body)):
 			self.body[i] = self.body[i].add_scope(exc)
 		return self
 
 	def set_scope(self, src, sed):
-		name, _ = self._it_name()
+		name = self._it_name()
 
 		sed = { **sed }
 		sed[name] = Identifier(self.it.ast, name)
 
+		self.set_it(self.it.set_scope(src, sed))
 		for i in range(len(self.body)):
 			self.body[i] = self.body[i].set_scope(src, sed)
 		return self
