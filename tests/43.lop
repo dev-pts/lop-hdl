@@ -7,6 +7,9 @@ interface: Bus
 		addr: net[32]: out / in
 	macros:
 		hit(reg, offset) = addr[-1 .. 2] == ($regaddr(reg)[-1 .. 2] + offset)
+		read(reg) = block:
+			for: i < 12
+				reg = i
 
 module: test
 	port:
@@ -16,3 +19,5 @@ module: test
 
 	if: @bus.hit(regs.push, 0)
 	if: @bus.hit(regs.full, 0)
+
+	@bus.read(regs.push)

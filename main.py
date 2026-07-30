@@ -1674,23 +1674,31 @@ class For:
 	def add(self, arg):
 		self.body.append(arg)
 
+	def clone(self):
+		ret = For(self.ast, self.inline)
+		ret.set_it(self.it.clone())
+		for i in self.body:
+			ret.add(i.clone())
+		return ret
+
+	def _it_name(self):
+		if type(self.it) == Identifier:
+			return self.it.name, None
+		elif type(self.it) == Binary:
+			return self.it.op1.name, self.it.op2.to_int()
+		else:
+			raise Exception()
+
 	def compile(self):
 		if self.inline:
 			ret = Bus(self.ast)
 		else:
 			ret = Block(self.ast)
-		count = None
+		name, count = self._it_name()
 
 		it = Symbol(self.ast)
 		it.set_value(Number(self.ast, 0))
-
-		if type(self.it) == Identifier:
-			it.set_name(self.it.name)
-		elif type(self.it) == Binary:
-			it.set_name(self.it.op1.name)
-			count = self.it.op2.to_int()
-		else:
-			raise Exception()
+		it.set_name(name)
 
 		while True:
 			if count != None:
@@ -1712,6 +1720,26 @@ class For:
 			it.value.value += 1
 
 		return ret
+
+	def add_scope(self, exc):
+		name, _ = self._it_name()
+
+		exc = { **exc }
+		exc[name] = None
+
+		for i in range(len(self.body)):
+			self.body[i] = self.body[i].add_scope(exc)
+		return self
+
+	def set_scope(self, src, sed):
+		name, _ = self._it_name()
+
+		sed = { **sed }
+		sed[name] = Identifier(self.it.ast, name)
+
+		for i in range(len(self.body)):
+			self.body[i] = self.body[i].set_scope(src, sed)
+		return self
 
 @for_all_methods(wrap)
 class SyncCond:
@@ -2694,6 +2722,12 @@ class Reg:
 		for i in self.scope.scope:
 			ret |= self.scope.lookup(i).get_mask(perm).to_int()
 		return Number(self.ast, ret, None, 'x').compile()
+
+	def resolve(self):
+		return self
+
+	def is_inout(self):
+		return False
 
 	def resolve_hier(self, field):
 		return self.scope.lookup(field.name)
