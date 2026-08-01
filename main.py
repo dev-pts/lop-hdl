@@ -1721,6 +1721,9 @@ class For:
 
 		count = self._it_count()
 
+		if count == None:
+			Slice.oob += 1
+
 		while True:
 			if count != None:
 				if it.value.value == count:
@@ -1739,6 +1742,9 @@ class For:
 				SCOPE.pop()
 
 			it.value.value += 1
+
+		if count == None:
+			Slice.oob -= 1
 
 		return ret.compile()
 
@@ -2432,6 +2438,8 @@ class If:
 
 @for_all_methods(wrap)
 class Slice:
+	oob = 0
+
 	def __init__(self, ast):
 		self.ast = ast
 		self.value = None
@@ -2476,6 +2484,10 @@ class Slice:
 			else:
 				dim = dim[1]
 			dim = dim.to_int()
+
+			if Slice.oob:
+				if lo < 0 or hi < 0 or dim <= lo or dim <= hi or hi < lo:
+					raise OutOfBounds('', self.ast.contents)
 
 			if lo < 0:
 				lo += dim
