@@ -2871,7 +2871,7 @@ def parser(syntax):
 
 	binary_left_to_right: '*', '/', '%'
 	binary_left_to_right: '+', '-'
-	binary_left_to_right: '<<', '>>'
+	binary_left_to_right: '<<', '>>', '>>>'
 	binary_left_to_right: '<', '>', '<=', '>='
 	binary_left_to_right: '==', '!='
 	binary_left_to_right: '&'
