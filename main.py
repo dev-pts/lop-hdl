@@ -1900,6 +1900,9 @@ class Assign:
 			c2.set_iftrue(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp))
 
 			parent.add_comb2(c2.compile())
+			# Prevent latches by default.
+			# If you need one, please consider implementing it
+			# with external verilog module.
 			parent.preadd_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(Number(self.ast, 0)).compile())
 
 		self.set_assign_type('=')
