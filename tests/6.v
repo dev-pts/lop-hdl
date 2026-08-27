@@ -4,5 +4,7 @@ module test(
 	inout wire c
 );
 	localparam A = 1;
+	always @(posedge a) begin
+	end
 endmodule
 

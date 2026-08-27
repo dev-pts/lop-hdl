@@ -1804,7 +1804,8 @@ class Sync:
 		self.cond.append(i)
 
 	def add(self, i):
-		self.body.append(i)
+		if type(i) != Empty:
+			self.body.append(i)
 
 	def compile(self):
 		ret = Sync(self.ast)

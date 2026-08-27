@@ -6,3 +6,5 @@ module: test:
 		c: inout
 	local:
 	if: a
+	ff: +a
+		if: b
