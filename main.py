@@ -1313,8 +1313,9 @@ def sh_write(ast, args):
 	ret = LiteralString(ast)
 	ret.add('$write(')
 	ret.add(args[0])
-	ret.add(', ')
-	ret.add(args[1])
+	for i in range(1, len(args)):
+		ret.add(', ')
+		ret.add(args[i])
 	ret.add(');\n')
 	return ret.compile()
 

@@ -4,4 +4,5 @@ module: test
 
 	ff: +clk
 		$write("%c", 12)
+		$write("%c, %c", 12, 13)
 		$fflush()
