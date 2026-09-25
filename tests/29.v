@@ -330,6 +330,13 @@ module test();
 	reg \dummy\222 ;
 	reg \dummy\223 ;
 	reg \dummy\224 ;
+	reg \dummy\225 ;
+	reg \dummy\226 ;
+	wire \dummy\226_sens  = 5'h10;
+	reg \dummy\227 ;
+	wire \dummy\227_sens  = 7;
+	reg \dummy\228 ;
+	wire \dummy\228_sens  = 7;
 	/*verilator tracing_on*/
 	always @(*) begin
 		\dummy\0  = \dummy\0_sens ;
@@ -557,6 +564,10 @@ module test();
 		\dummy\222  = ((((((regs__d__rcs | regs__d__rs) | regs__d__rw) | regs__d__cs) | regs__d__s) | regs__d__w) | regs__d__cr) | regs__d__r;
 		\dummy\223  = ((((((regs__c[7] | regs__c[6]) | regs__c[5]) | regs__c[4]) | regs__c[3]) | regs__c[2]) | regs__c[1]) | regs__c[0];
 		\dummy\224  = ((((((regs__d[63:56] | regs__d[55:48]) | regs__d[47:40]) | regs__d[39:32]) | regs__d[31:24]) | regs__d[23:16]) | regs__d[15:8]) | regs__d[7:0];
+		\dummy\225  = regs__c;
+		\dummy\226  = \dummy\226_sens ;
+		\dummy\227  = \dummy\227_sens ;
+		\dummy\228  = \dummy\228_sens ;
 	end
 	always @(*) begin
 		dummy = \dummy\0 ;
@@ -784,6 +795,10 @@ module test();
 		dummy = \dummy\222 ;
 		dummy = \dummy\223 ;
 		dummy = \dummy\224 ;
+		dummy = \dummy\225 ;
+		dummy = \dummy\226 ;
+		dummy = \dummy\227 ;
+		dummy = \dummy\228 ;
 	end
 endmodule
 

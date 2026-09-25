@@ -138,3 +138,8 @@ module: test
 
 	dummy = $regcast(regs.c.rcs) | $regcast(regs.c.rs) | $regcast(regs.c.rw) | $regcast(regs.c.cs) | $regcast(regs.c.s) | $regcast(regs.c.w) | $regcast(regs.c.cr) | $regcast(regs.c.r)
 	dummy = $regcast(regs.d.rcs) | $regcast(regs.d.rs) | $regcast(regs.d.rw) | $regcast(regs.d.cs) | $regcast(regs.d.s) | $regcast(regs.d.w) | $regcast(regs.d.cr) | $regcast(regs.d.r)
+
+	dummy = $fieldreg(regs.c.rcs)
+	dummy = $regaddr($fieldreg(regs.c.rcs))
+	dummy = $fieldlo(regs.c.rcs)
+	dummy = $fieldhi(regs.c.rcs)

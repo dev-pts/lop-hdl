@@ -1259,6 +1259,19 @@ system['regcrmask'] = sh_regcrmask
 system['regcsmask'] = sh_regcsmask
 system['regcast'] = sh_regcast
 
+def sh_fieldreg(ast, args):
+	return args[0].namespace
+
+def sh_fieldlo(ast, args):
+	return args[0].resolve().lo
+
+def sh_fieldhi(ast, args):
+	return args[0].resolve().hi
+
+system['fieldreg'] = sh_fieldreg
+system['fieldlo'] = sh_fieldlo
+system['fieldhi'] = sh_fieldhi
+
 @for_all_methods(wrap)
 class LiteralString:
 	def __init__(self, ast):
