@@ -184,14 +184,14 @@ class External:
 		self.port.append(arg)
 		self.scope.add(arg)
 
-	def compile(self, param=Scope()):
+	def compile(self, parent, param=Scope()):
 		ret = External()
 
 		for i in self.param:
 			ret.add_param(i.clone())
 		for i in param.scope:
 			p = ret.scope.lookup(i)
-			p.set_value(param.lookup(i).value.compile())
+			p.set_value(param.lookup(i).value.compile(parent))
 
 		for i in self.port:
 			ret.add_port(i.clone())
@@ -199,9 +199,9 @@ class External:
 		SCOPE.push(ret.scope)
 
 		for i in ret.param:
-			i.compile_value()
+			i.compile_value(ret)
 		for i in ret.port:
-			i.compile_value()
+			i.compile_value(ret)
 
 		SCOPE.pop()
 		return ret
@@ -230,13 +230,13 @@ class InterfacePortDesc:
 	def add_param(self, arg):
 		self.param.add(arg)
 
-	def compile(self, idx):
+	def compile(self, parent, idx):
 		if self.interface:
 			ret = InterfaceInstance(self.ast)
 			ret.set_namespace(self.interface)
 			ret.set_field(self._class[idx])
 			ret.param = self.param
-			return ret.compile()
+			return ret.compile(parent)
 
 		ret = Port(self.ast)
 		cls = self._class[idx]
@@ -245,7 +245,7 @@ class InterfacePortDesc:
 		ret.set_dir(cls)
 		if self.width:
 			ret.set_width(self.width)
-		return ret.compile()
+		return ret.compile(parent)
 
 @for_all_methods(wrap)
 class MacroCall:
@@ -260,9 +260,9 @@ class MacroCall:
 	def add_param(self, arg):
 		self.param.append(arg)
 
-	def compile(self):
-		ret = self.func.compile().resolve().clone()
-		return ret.expand(self.func.namespace, self.param)
+	def compile(self, parent):
+		ret = self.func.compile(parent).resolve().clone()
+		return ret.expand(parent, self.func.namespace, self.param)
 
 	def clone(self):
 		ret = MacroCall(self.ast)
@@ -296,7 +296,7 @@ class Macro:
 	def add_param(self, arg):
 		self.param[arg.name] = None
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Macro(self.ast)
 		ret.set_func(self.func.clone().add_scope(self.param))
 		for i in self.param:
@@ -310,14 +310,14 @@ class Macro:
 			ret.param[i] = None
 		return ret
 
-	def expand(self, src, param):
+	def expand(self, parent, src, param):
 		k = 0
 		for i in self.param:
 			self.param[i] = param[k]
 			k += 1
 
 		ret = self.func.set_scope(src, self.param)
-		ret = ret.compile()
+		ret = ret.compile(parent)
 		return ret
 
 @for_all_methods(wrap)
@@ -349,7 +349,7 @@ class Interface:
 		self.macro.append(arg)
 		self.scope.add(arg)
 
-	def compile(self, _class, param=Scope()):
+	def compile(self, parent, _class, param=Scope()):
 		if _class not in self._class:
 			raise Exception(f'"{_class}" not found')
 
@@ -361,7 +361,7 @@ class Interface:
 			ret.add_param(i.clone())
 		for i in param.scope:
 			p = ret.scope.lookup(i)
-			p.set_value(param.lookup(i).value.compile())
+			p.set_value(param.lookup(i).value.compile(parent))
 
 		for i in self.port:
 			ret.add_port(i.clone())
@@ -371,13 +371,13 @@ class Interface:
 		SCOPE.push(ret.scope)
 
 		for i in ret.param:
-			i.compile_value()
+			i.compile_value(ret)
 
 		idx = self._class.index(_class)
 		for i in ret.port:
-			i.compile_value(idx)
+			i.compile_value(ret, idx)
 		for i in ret.macro:
-			i.compile_value()
+			i.compile_value(ret)
 
 		SCOPE.pop()
 		return ret
@@ -425,11 +425,11 @@ class InterfaceInstance:
 	def add_param(self, arg):
 		self.param.add(arg)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = InterfaceInstance(self.ast)
-		ret.inst = SCOPE.lookup(self.namespace).value.compile(self.field, param=self.param)
+		ret.inst = SCOPE.lookup(self.namespace).value.compile(parent, self.field, param=self.param)
 		if self.shape[0]:
-			ret.set_count(self.shape[0].compile())
+			ret.set_count(self.shape[0].compile(parent))
 
 		mname = self.namespace
 		for i in self.param.scope:
@@ -520,6 +520,7 @@ class Module:
 		self.port = []
 		self.local = []
 		self.hidden_local = []
+		self.generated_local = []
 
 		self.pre_comb = [[], []]
 		self.comb = [[], []]
@@ -552,6 +553,10 @@ class Module:
 
 	def add_hidden_local(self, arg):
 		self.hidden_local.append(arg)
+		self.scope.add(arg)
+
+	def add_generated_local(self, arg):
+		self.generated_local.append(arg)
 		self.scope.add(arg)
 
 	def add_initial(self, arg):
@@ -598,16 +603,16 @@ class Module:
 
 		self.add_hidden_local(symbol)
 
-		self.add_assign(Assign(src.ast, '=').set_lhs(src).set_rhs(Identifier(src.ast, name)).compile())
+		self.add_assign(Assign(src.ast, '=').set_lhs(src).set_rhs(Identifier(src.ast, name)).compile(self))
 
-	def compile(self, param=Scope()):
+	def compile(self, parent, param=Scope()):
 		ret = Module()
 
 		for i in self.param:
 			ret.add_param(i.clone())
 		for i in param.scope:
 			p = ret.scope.lookup(i)
-			p.set_value(param.lookup(i).value.compile())
+			p.set_value(param.lookup(i).value.compile(ret))
 
 		for i in self.const:
 			ret.add_const(i.clone())
@@ -619,20 +624,20 @@ class Module:
 		SCOPE.push(ret.scope)
 
 		for i in ret.param:
-			i.compile_value()
+			i.compile_value(ret)
 		for i in ret.const:
-			i.compile_value()
+			i.compile_value(ret)
 		for i in ret.port:
-			i.compile_value()
+			i.compile_value(ret)
 		for i in ret.local:
-			i.compile_value()
+			i.compile_value(ret)
 
 		for i in self.initial:
-			ret.add_initial(i.compile())
+			ret.add_initial(i.compile(ret))
 		for i in self.comb[0]:
-			ret.add_comb(i.compile())
+			ret.add_comb(i.compile(ret))
 		for i in self.sync:
-			ret.add_sync(i.compile())
+			ret.add_sync(i.compile(ret))
 
 		if True:
 			tmp = ret.comb[0]
@@ -739,13 +744,13 @@ class Port:
 	def set_width(self, arg):
 		self.shape = (self.shape[0], arg)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Port(self.ast)
 		ret.set_dir(self.dir)
 		if self.shape[0]:
-			ret.set_count(self.shape[0].compile())
+			ret.set_count(self.shape[0].compile(parent))
 		if self.shape[1]:
-			ret.set_width(self.shape[1].compile())
+			ret.set_width(self.shape[1].compile(parent))
 		return ret
 
 	def is_inout(self):
@@ -870,14 +875,14 @@ class Net:
 	def set_width(self, arg):
 		self.shape = (self.shape[0], arg)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Net(self.ast)
 		if self.value:
-			ret.set_value(self.value.compile())
+			ret.set_value(self.value.compile(parent))
 		if self.shape[0]:
-			ret.set_count(self.shape[0].compile())
+			ret.set_count(self.shape[0].compile(parent))
 		if self.shape[1]:
-			ret.set_width(self.shape[1].compile())
+			ret.set_width(self.shape[1].compile(parent))
 		return ret
 
 	def resolve(self):
@@ -941,10 +946,10 @@ class FSM:
 		for i in arg:
 			self.add_state(i)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = FSM(self.ast)
 		if self.shape[0]:
-			ret.set_count(self.shape[0].compile())
+			ret.set_count(self.shape[0].compile(parent))
 		ret.add_states(list(self.state.keys()))
 		return ret
 
@@ -960,7 +965,7 @@ class FSM:
 	def _get_idx(self, field):
 		return 1 << self.state[field]
 
-	def goto(self, src):
+	def goto(self, parent, src):
 		blk = Block(src.ast)
 
 		ret = Assign(src.ast)
@@ -977,7 +982,7 @@ class FSM:
 		blk.add(ret)
 		"""
 
-		return blk.compile()
+		return blk.compile(parent)
 
 	def resolve(self):
 		return self
@@ -1094,27 +1099,27 @@ class Z:
 	def to_verilog(self):
 		return "1'bz"
 
-def sh_z(ast, args):
+def sh_z(ast, parent, args):
 	if len(args) != 0:
 		raise Exception()
 	return Z(ast)
 
-def sh_goto(ast, args):
+def sh_goto(ast, parent, args):
 	if len(args) != 1:
 		raise Exception()
 
 	hier = args[0]
 	fsm = hier.resolve()
 
-	return fsm.goto(hier)
+	return fsm.goto(parent, hier)
 
-def sh_bind(ast, args):
+def sh_bind(ast, parent, args):
 	hier = args[0]
 	port = hier.resolve().resolve()
 	port.set_binding(args[1])
 	return Empty()
 
-def sh_connect(ast, args):
+def sh_connect(ast, parent, args):
 	def _get_list(src):
 		inst = src.is_instance()
 
@@ -1157,12 +1162,12 @@ def sh_connect(ast, args):
 				.set_rhs(a_rhs[i])
 		)
 
-	return ret.compile()
+	return ret.compile(parent)
 
-def sh_number(ast, args):
+def sh_number(ast, parent, args):
 	return Number(ast, args[0].to_int(), args[1].to_int(), args[2].value)
 
-def sh_width(ast, args):
+def sh_width(ast, parent, args):
 	return args[0].get_width()
 
 system['z'] = sh_z
@@ -1173,25 +1178,25 @@ system['number'] = sh_number
 system['width'] = sh_width
 
 # math.ceil() here is needed, because usually we want it to fit into our desired max number
-def sh_clog2(ast, args):
+def sh_clog2(ast, parent, args):
 	return Number(ast, int(math.ceil(math.log2(args[0].to_int()))))
 
-def sh_int(ast, args):
+def sh_int(ast, parent, args):
 	return Number(ast, int(args[0].to_int()))
 
-def sh_round(ast, args):
+def sh_round(ast, parent, args):
 	return Number(ast, round(args[0].to_int()))
 
-def sh_floor(ast, args):
+def sh_floor(ast, parent, args):
 	return Number(ast, int(math.floor(args[0].to_int())))
 
-def sh_ceil(ast, args):
+def sh_ceil(ast, parent, args):
 	return Number(ast, int(math.ceil(args[0].to_int())))
 
-def sh_max(ast, args):
+def sh_max(ast, parent, args):
 	return Number(ast, max(args[0].to_int(), args[1].to_int()))
 
-def sh_min(ast, args):
+def sh_min(ast, parent, args):
 	return Number(ast, min(args[0].to_int(), args[1].to_int()))
 
 system['clog2'] = sh_clog2
@@ -1202,29 +1207,29 @@ system['ceil'] = sh_ceil
 system['max'] = sh_max
 system['min'] = sh_min
 
-def sh_regaddr(ast, args):
+def sh_regaddr(ast, parent, args):
 	return args[0].resolve().get_addr()
 
-def sh_regsize(ast, args):
-	return args[0].resolve().get_size()
+def sh_regsize(ast, parent, args):
+	return args[0].resolve().get_size(parent)
 
-def sh_regrmask(ast, args):
-	return args[0].resolve().get_mask('R')
+def sh_regrmask(ast, parent, args):
+	return args[0].resolve().get_mask(parent, 'R')
 
-def sh_regwmask(ast, args):
-	return args[0].resolve().get_mask('W')
+def sh_regwmask(ast, parent, args):
+	return args[0].resolve().get_mask(parent, 'W')
 
-def sh_regsmask(ast, args):
-	return args[0].resolve().get_mask('S')
+def sh_regsmask(ast, parent, args):
+	return args[0].resolve().get_mask(parent, 'S')
 
-def sh_regcrmask(ast, args):
-	return args[0].resolve().get_mask('CR')
+def sh_regcrmask(ast, parent, args):
+	return args[0].resolve().get_mask(parent, 'CR')
 
-def sh_regcsmask(ast, args):
-	return args[0].resolve().get_mask('CS')
+def sh_regcsmask(ast, parent, args):
+	return args[0].resolve().get_mask(parent, 'CS')
 
-def sh_regcast(ast, args):
-	return args[0].resolve().to_reg(args[0])
+def sh_regcast(ast, parent, args):
+	return args[0].resolve().to_reg(parent, args[0])
 
 system['regaddr'] = sh_regaddr
 system['regsize'] = sh_regsize
@@ -1235,13 +1240,13 @@ system['regcrmask'] = sh_regcrmask
 system['regcsmask'] = sh_regcsmask
 system['regcast'] = sh_regcast
 
-def sh_fieldreg(ast, args):
+def sh_fieldreg(ast, parent, args):
 	return args[0].namespace
 
-def sh_fieldlo(ast, args):
+def sh_fieldlo(ast, parent, args):
 	return args[0].resolve().lo
 
-def sh_fieldhi(ast, args):
+def sh_fieldhi(ast, parent, args):
 	return args[0].resolve().hi
 
 system['fieldreg'] = sh_fieldreg
@@ -1257,13 +1262,13 @@ class LiteralString:
 	def add(self, arg):
 		self.value.append(arg)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = LiteralString(self.ast)
 		for i in self.value:
 			if type(i) == str:
 				ret.add(i)
 			else:
-				ret.add(i.compile())
+				ret.add(i.compile(parent))
 		return ret
 
 	def replace_inout(self, parent):
@@ -1282,23 +1287,23 @@ class LiteralString:
 
 		return ret
 
-def sh_readmemh(ast, args):
+def sh_readmemh(ast, parent, args):
 	ret = LiteralString(ast)
 	ret.add('$readmemh(')
 	ret.add(args[0])
 	ret.add(', ')
 	ret.add(args[1])
 	ret.add(');\n')
-	return ret.compile()
+	return ret.compile(parent)
 
-def sh_signed(ast, args):
+def sh_signed(ast, parent, args):
 	ret = LiteralString(ast)
 	ret.add('$signed(')
 	ret.add(args[0])
 	ret.add(')')
-	return ret.compile()
+	return ret.compile(parent)
 
-def sh_write(ast, args):
+def sh_write(ast, parent, args):
 	ret = LiteralString(ast)
 	ret.add('$write(')
 	ret.add(args[0])
@@ -1306,12 +1311,12 @@ def sh_write(ast, args):
 		ret.add(', ')
 		ret.add(args[i])
 	ret.add(');\n')
-	return ret.compile()
+	return ret.compile(parent)
 
-def sh_fflush(ast, args):
+def sh_fflush(ast, parent, args):
 	ret = LiteralString(ast)
 	ret.add('$fflush();\n')
-	return ret.compile()
+	return ret.compile(parent)
 
 system['readmemh'] = sh_readmemh
 system['signed'] = sh_signed
@@ -1342,11 +1347,11 @@ class System:
 			ret.add_arg(i.clone())
 		return ret
 
-	def compile(self):
+	def compile(self, parent):
 		args = []
 		for i in self.args:
-			args.append(i.compile())
-		return self.func(self.ast, args)
+			args.append(i.compile(parent))
+		return self.func(self.ast, parent, args)
 
 	def add_scope(self, exc):
 		for i in range(len(self.args)):
@@ -1365,8 +1370,8 @@ class Identifier:
 		self.name = name
 		self.ref = None
 
-	def compile(self):
-		ref = SCOPE.lookup(self.name).compile_value()
+	def compile(self, parent):
+		ref = SCOPE.lookup(self.name).compile_value(parent)
 		if type(ref) in [Number, String]:
 			return ref
 		ret = Identifier(self.ast, self.name)
@@ -1480,7 +1485,7 @@ class Number:
 		else:
 			raise Exception(f'Unknown base "{self.base}"')
 
-	def compile(self):
+	def compile(self, parent):
 		return Number(self.ast, self.value, self.width, self.base)
 
 	def set_binded(self):
@@ -1596,7 +1601,7 @@ class String:
 		self.ast = ast
 		self.value = value
 
-	def compile(self):
+	def compile(self, parent):
 		return String(self.ast, self.value)
 
 	def operator(self, op, op2):
@@ -1626,10 +1631,10 @@ class Block:
 			self.body.append(arg)
 		return self
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Block(self.ast)
 		for i in self.body:
-			ret.add(i.compile())
+			ret.add(i.compile(parent))
 		if not ret.body:
 			return Empty()
 		return ret
@@ -1694,15 +1699,15 @@ class For:
 		else:
 			raise Exception()
 
-	def _it_count(self):
+	def _it_count(self, parent):
 		if type(self.it) == Identifier:
 			return None
 		elif type(self.it) == Binary:
-			return self.it.op2.compile().to_int()
+			return self.it.op2.compile(parent).to_int()
 		else:
 			raise Exception()
 
-	def compile(self):
+	def compile(self, parent):
 		if self.inline:
 			ret = Bus(self.ast)
 		else:
@@ -1712,7 +1717,7 @@ class For:
 		it.set_value(Number(self.ast, 0))
 		it.set_name(self._it_name())
 
-		count = self._it_count()
+		count = self._it_count(parent)
 
 		if count == None:
 			Slice.oob += 1
@@ -1728,7 +1733,7 @@ class For:
 			SCOPE.push(local)
 			try:
 				for i in self.body:
-					ret.add(i.compile())
+					ret.add(i.compile(parent))
 			except OutOfBounds:
 				break
 			finally:
@@ -1739,7 +1744,7 @@ class For:
 		if count == None:
 			Slice.oob -= 1
 
-		return ret.compile()
+		return ret.compile(parent)
 
 	def add_scope(self, exc):
 		name = self._it_name()
@@ -1773,9 +1778,9 @@ class SyncCond:
 	def set_cond(self, i):
 		self.cond = i
 
-	def compile(self):
+	def compile(self, parent):
 		ret = SyncCond(self.ast, self.pos)
-		ret.set_cond(self.cond.compile())
+		ret.set_cond(self.cond.compile(parent))
 		return ret
 
 	def to_verilog(self):
@@ -1799,12 +1804,12 @@ class Sync:
 		if type(i) != Empty:
 			self.body.append(i)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Sync(self.ast)
 		for i in self.cond:
-			ret.add_cond(i.compile())
+			ret.add_cond(i.compile(parent))
 		for i in self.body:
-			ret.add(i.compile())
+			ret.add(i.compile(parent))
 		return ret
 
 	def replace_inout(self, parent):
@@ -1845,10 +1850,10 @@ class Assign:
 		self.assign_type = arg
 		return self
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Assign(self.ast)
-		ret.set_lhs(self.lhs.compile())
-		ret.set_rhs(self.rhs.compile())
+		ret.set_lhs(self.lhs.compile(parent))
+		ret.set_rhs(self.rhs.compile(parent))
 		ret.set_assign_type(self.assign_type)
 		return ret
 
@@ -1871,10 +1876,10 @@ class Assign:
 
 		parent.add_hidden_local(symbol)
 
-		temp = Identifier(self.ast, name).compile()
+		temp = Identifier(self.ast, name).compile(parent)
 
 		if toplevel:
-			parent.add_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp).compile())
+			parent.add_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp).compile(parent))
 		else:
 			name_we = f'{tpl}_we '
 			net_we = Net(self.ast)
@@ -1884,17 +1889,17 @@ class Assign:
 
 			parent.add_hidden_local(symbol_we)
 
-			temp_we = Identifier(self.ast, name_we).compile()
+			temp_we = Identifier(self.ast, name_we).compile(parent)
 
 			c2 = If(self.ast, False)
 			c2.set_cond(temp_we)
 			c2.set_iftrue(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(temp))
 
-			parent.add_comb2(c2.compile())
+			parent.add_comb2(c2.compile(parent))
 			# Prevent latches by default.
 			# If you need one, please consider implementing it
 			# with external verilog module.
-			parent.preadd_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(Number(self.ast, 0)).compile())
+			parent.preadd_comb2(Assign(self.ast, '=').set_lhs(self.lhs).set_rhs(Number(self.ast, 0)).compile(parent))
 
 		self.set_assign_type('=')
 		self.set_lhs(temp)
@@ -1917,7 +1922,7 @@ class Assign:
 
 			parent.add_hidden_local(symbol_sens)
 
-			temp_sens = Identifier(self.ast, name_sens).compile()
+			temp_sens = Identifier(self.ast, name_sens).compile(parent)
 
 			self.rhs = temp_sens
 
@@ -1940,7 +1945,7 @@ class Assign:
 		ret.add(self)
 		if not toplevel:
 			ret.add(Assign(self.ast, '=').set_lhs(temp_we).set_rhs(Number(self.ast, 1)))
-		ret = ret.compile()
+		ret = ret.compile(parent)
 
 		return ret
 
@@ -1973,10 +1978,10 @@ class Bus:
 	def add(self, item):
 		self.item.append(item)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Bus(self.ast)
 		for i in self.item:
-			ret.add(i.compile())
+			ret.add(i.compile(parent))
 		return ret
 
 	def get_width(self):
@@ -2028,11 +2033,11 @@ class Replicate:
 	def add(self, item):
 		self.item.append(item)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Replicate(self.ast)
-		ret.set_number(self.number.compile())
+		ret.set_number(self.number.compile(parent))
 		for i in self.item:
-			ret.add(i.compile())
+			ret.add(i.compile(parent))
 		return ret
 
 	def operator(self, op, op2):
@@ -2048,7 +2053,7 @@ class Operator:
 		self.ast = ast
 		self.value = value
 
-	def compile(self):
+	def compile(self, parent):
 		return self
 
 	def clone(self):
@@ -2070,16 +2075,16 @@ class Unary:
 	def set_op1(self, i):
 		self.op1 = i
 
-	def compile(self):
+	def compile(self, parent):
 		op = self.op.to_verilog()
-		op1 = self.op1.compile()
+		op1 = self.op1.compile(parent)
 
 		ret = op1.operator(op, None)
 		if ret:
 			return ret
 
 		ret = Unary(self.ast)
-		ret.set_op(self.op.compile())
+		ret.set_op(self.op.compile(parent))
 		ret.set_op1(op1)
 		return ret
 
@@ -2125,9 +2130,9 @@ class Hier:
 		self.field = arg
 		return self
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Hier(self.ast)
-		ret.set_namespace(self.namespace.compile())
+		ret.set_namespace(self.namespace.compile(parent))
 		ret.set_field(self.field)
 		ret.ref = ret.namespace.resolve().resolve_hier(self.field)
 		return ret
@@ -2212,17 +2217,17 @@ class Binary:
 	def set_op2(self, i):
 		self.op2 = i
 
-	def compile(self):
+	def compile(self, parent):
 		op = self.op.to_verilog()
-		op1 = self.op1.compile()
-		op2 = self.op2.compile()
+		op1 = self.op1.compile(parent)
+		op2 = self.op2.compile(parent)
 
 		ret = op1.operator(op, op2)
 		if ret:
 			return ret
 
 		ret = Binary(self.ast)
-		ret.set_op(self.op.compile())
+		ret.set_op(self.op.compile(parent))
 		ret.set_op1(op1)
 		ret.set_op2(op2)
 		return ret
@@ -2314,10 +2319,10 @@ class Range:
 		ret.set_lo(self.lo.clone())
 		return ret
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Range(self.ast)
-		ret.set_hi(self.hi.compile())
-		ret.set_lo(self.lo.compile())
+		ret.set_hi(self.hi.compile(parent))
+		ret.set_lo(self.lo.compile(parent))
 		return ret
 
 	def add_scope(self, exc):
@@ -2357,24 +2362,24 @@ class If:
 		else:
 			self.iffalse = arg
 
-	def compile(self):
-		cond = self.cond.compile()
+	def compile(self, parent):
+		cond = self.cond.compile(parent)
 
 		if type(cond) == Number:
 			if cond.to_int() == 0:
 				if self.iffalse:
-					return self.iffalse.compile()
+					return self.iffalse.compile(parent)
 				return Empty()
 			if self.iftrue:
-				return self.iftrue.compile()
+				return self.iftrue.compile(parent)
 			return Empty()
 
 		ret = If(self.ast, self.inline)
 		ret.cond = cond
 		if self.iftrue:
-			ret.set_iftrue(self.iftrue.compile())
+			ret.set_iftrue(self.iftrue.compile(parent))
 		if self.iffalse:
-			ret.set_iffalse(self.iffalse.compile())
+			ret.set_iffalse(self.iffalse.compile(parent))
 		if not ret.iftrue and not ret.iffalse:
 			return Empty()
 		return ret
@@ -2477,9 +2482,9 @@ class Slice:
 		ret.set_hilo(self.hilo.clone())
 		return ret
 
-	def compile(self):
-		hilo = self.hilo.compile()
-		value = self.value.compile()
+	def compile(self, parent):
+		hilo = self.hilo.compile(parent)
+		value = self.value.compile(parent)
 
 		hi = lo = None
 		if type(hilo) == Range:
@@ -2588,13 +2593,13 @@ class Instance:
 	def add_param(self, arg):
 		self.param.add(arg)
 
-	def compile(self):
+	def compile(self, parent):
 		ret = Instance(self.ast)
 		ret.set_name(self.name)
 		ret.param = self.param
-		ret.inst = SCOPE.lookup(self.name).value.compile(param=self.param)
+		ret.inst = SCOPE.lookup(self.name).value.compile(parent, param=self.param)
 		if self.shape[0]:
-			ret.set_count(self.shape[0].compile())
+			ret.set_count(self.shape[0].compile(parent))
 		return ret
 
 	def resolve(self):
@@ -2708,20 +2713,20 @@ class Field:
 	def _get_mask(self):
 		return ((1 << self._get_size()) - 1) << self.lo.to_int()
 
-	def get_mask(self, perm):
+	def get_mask(self, parent, perm):
 		if perm in self.perm:
-			return Number(self.ast, self._get_mask(), None, 'x').compile()
+			return Number(self.ast, self._get_mask(), None, 'x').compile(parent)
 
-		return Number(self.ast, 0).compile()
+		return Number(self.ast, 0).compile(parent)
 
-	def to_reg(self, src):
+	def to_reg(self, parent, src):
 		ret = Slice(src.ast)
 		ret.set_value(src.namespace)
 		if self._get_size() == 1:
 			ret.set_hilo(self.hi)
 		else:
 			ret.set_hilo(Range(src.ast).set_hi(self.hi).set_lo(self.lo))
-		return ret.compile()
+		return ret.compile(parent)
 
 	def slice(self, hi, lo):
 		return None
@@ -2784,19 +2789,19 @@ class Reg:
 	def _get_mask(self):
 		return (1 << (self.hi.to_int() - self.lo.to_int() + 1) * 8) - 1
 
-	def get_size(self):
-		return Number(self.ast, self._get_bytes()).compile()
+	def get_size(self, parent):
+		return Number(self.ast, self._get_bytes()).compile(parent)
 
-	def get_mask(self, perm):
+	def get_mask(self, parent, perm):
 		if self.perm:
 			if perm in self.perm:
-				return Number(self.ast, self._get_mask(), None, 'x').compile()
-			return Number(self.ast, 0).compile()
+				return Number(self.ast, self._get_mask(), None, 'x').compile(parent)
+			return Number(self.ast, 0).compile(parent)
 
 		ret = 0
 		for i in self.scope.scope:
-			ret |= self.scope.lookup(i).get_mask(perm).to_int()
-		return Number(self.ast, ret, None, 'x').compile()
+			ret |= self.scope.lookup(i).get_mask(parent, perm).to_int()
+		return Number(self.ast, ret, None, 'x').compile(parent)
 
 	def resolve(self):
 		return self
@@ -2840,7 +2845,7 @@ class Regs:
 	def add_reg(self, arg):
 		self.scope.add(arg)
 
-	def compile(self):
+	def compile(self, parent):
 		return self
 
 	def resolve_hier(self, field):
@@ -2861,8 +2866,8 @@ class Resolver:
 		self.ast = ast
 		self.identifier = identifier
 
-	def compile(self):
-		return self.identifier.compile().ref
+	def compile(self, parent):
+		return self.identifier.compile(parent).ref
 
 SYNTAX = []
 PARSER = []
@@ -4007,7 +4012,7 @@ for i in range(lop.hl.count):
 try:
 	top = SCOPE.lookup(topname).value
 	# 1. Constant folding & propagation & bound checking, for-loops unrolling
-	top = top.compile()
+	top = top.compile(None)
 	if args.cmd == 'gen-verilog':
 		# 2. Convert to verilog top and dependant modules
 		topv = top.to_verilog(topname)
