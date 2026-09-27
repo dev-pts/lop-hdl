@@ -337,6 +337,8 @@ module test();
 	wire \dummy\227_sens  = 7;
 	reg \dummy\228 ;
 	wire \dummy\228_sens  = 7;
+	reg [7:0] \regs__d[63:56]\229 ;
+	wire [7:0] \regs__d[63:56]\229_sens  = 0;
 	/*verilator tracing_on*/
 	always @(*) begin
 		\dummy\0  = \dummy\0_sens ;
@@ -568,6 +570,7 @@ module test();
 		\dummy\226  = \dummy\226_sens ;
 		\dummy\227  = \dummy\227_sens ;
 		\dummy\228  = \dummy\228_sens ;
+		\regs__d[63:56]\229  = \regs__d[63:56]\229_sens ;
 	end
 	always @(*) begin
 		dummy = \dummy\0 ;
@@ -799,6 +802,7 @@ module test();
 		dummy = \dummy\226 ;
 		dummy = \dummy\227 ;
 		dummy = \dummy\228 ;
+		regs__d[63:56] = \regs__d[63:56]\229 ;
 	end
 endmodule
 

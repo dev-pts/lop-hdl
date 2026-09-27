@@ -135,14 +135,14 @@ module test(
 	);
 	/*verilator tracing_off*/
 	reg \a__a\0 ;
-	reg [1:0] \c_0__b[0]\1 ;
-	reg [1:0] \c_0__b[1]\2 ;
-	reg [1:0] \c_0__b[0]\3 ;
-	reg [1:0] \c_1__b[0]\4 ;
-	reg [1:0] \b__b[0]\5 ;
-	reg [1:0] \b__b[1]\6 ;
-	reg [1:0] \b__b[0]\7 ;
-	reg [1:0] \b__b[1]\8 ;
+	reg \c_0__b[0]\1 ;
+	reg \c_0__b[1]\2 ;
+	reg \c_0__b[0]\3 ;
+	reg \c_1__b[0]\4 ;
+	reg \b__b[0]\5 ;
+	reg \b__b[1]\6 ;
+	reg \b__b[0]\7 ;
+	reg \b__b[1]\8 ;
 	reg \a__a\9 ;
 	reg [1:0] \c_0__b\10 ;
 	reg \a__a\11 ;

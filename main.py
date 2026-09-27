@@ -167,15 +167,6 @@ class GlobalScope:
 
 SCOPE = GlobalScope()
 
-def dim_to_width(dim):
-	width = None
-	if len(dim) > 0:
-		width = dim[-1]
-	if width == None:
-		width = Number(None, 1)
-
-	return width
-
 @for_all_methods(wrap)
 class External:
 	def __init__(self):
@@ -247,14 +238,11 @@ class InterfacePortDesc:
 			ret.param = self.param
 			return ret.compile()
 
-		ret2 = Port(self.ast)
+		ret = Port(self.ast)
 		cls = self._class[idx]
 		if cls != 'inout':
 			cls += 'put'
-		ret2.set_dir(cls)
-
-		ret = Array(self.ast)
-		ret.set_value(ret2)
+		ret.set_dir(cls)
 		if self.width:
 			ret.set_width(self.width)
 		return ret.compile()
@@ -423,6 +411,10 @@ class InterfaceInstance:
 		self.inst = None
 		self.param = Scope()
 		self.proto = None
+		self.shape = (None, None)
+
+	def set_count(self, arg):
+		self.shape = (arg, self.shape[1])
 
 	def set_namespace(self, arg):
 		self.namespace = arg
@@ -436,6 +428,8 @@ class InterfaceInstance:
 	def compile(self):
 		ret = InterfaceInstance(self.ast)
 		ret.inst = SCOPE.lookup(self.namespace).value.compile(self.field, param=self.param)
+		if self.shape[0]:
+			ret.set_count(self.shape[0].compile())
 
 		mname = self.namespace
 		for i in self.param.scope:
@@ -443,8 +437,11 @@ class InterfaceInstance:
 		ret.proto = mname.translate(str.maketrans(".-", "_n"))
 		return ret
 
+	def slice(self, hi, lo):
+		return None
+
 	def dim(self):
-		return (None, None)
+		return self.shape
 
 	def resolve(self):
 		return self
@@ -461,9 +458,9 @@ class InterfaceInstance:
 			ret.extend(i.resolve().get_ports(filter_dir, Hier(src.ast).set_namespace(src).set_field(Identifier(src.ast, i.name))))
 		return ret
 
-	def get_port_name(self, name, filt, shape=(None, None)):
+	def get_port_name(self, name, filt):
 		ret = []
-		count, _ = shape
+		count, _ = self.shape
 
 		for i in self.inst.port:
 			if count:
@@ -479,14 +476,14 @@ class InterfaceInstance:
 	def to_verilog_hier(self, namespace, field):
 		return f'{namespace.to_verilog()}__{field.name}'
 
-	def to_verilog_slice(self, name, dim, shape):
+	def to_verilog_slice(self, name, dim=(None, None)):
 		ret = name
 		if dim[0]:
 			ret += f'_{dim[0].to_verilog()}'
 		return ret
 
-	def to_verilog(self, name, shape=(None, None)):
-		count, _ = shape
+	def to_verilog(self, name):
+		count, _ = self.shape
 
 		if count:
 			if count.to_int() == 0:
@@ -496,7 +493,7 @@ class InterfaceInstance:
 
 		return self.inst.to_verilog(name)
 
-	def to_verilog_inst_port(self, name, shape=(None, None)):
+	def to_verilog_inst_port(self, name):
 		ret = Formatter()
 
 		for i in self.inst.port:
@@ -593,15 +590,11 @@ class Module:
 		count, width = ref.dim()
 
 		net = Net(src.ast)
-		if width and width and width.to_int() == 1:
-			sv = net
-		else:
-			sv = Array(src.ast)
-			sv.set_width(width)
-			sv.set_value(net)
+		net.set_width(width)
+
 		symbol = Symbol(src.ast)
 		symbol.set_name(name)
-		symbol.set_value(sv)
+		symbol.set_value(net)
 
 		self.add_hidden_local(symbol)
 
@@ -731,6 +724,7 @@ class Port:
 		self.ast = ast
 		self.dir = None
 		self.binding = None
+		self.shape = (None, None)
 
 	def set_dir(self, dir):
 		self.dir = dir
@@ -739,9 +733,19 @@ class Port:
 		self.binding = arg
 		arg.resolve().set_binded()
 
+	def set_count(self, arg):
+		self.shape = (arg, self.shape[1])
+
+	def set_width(self, arg):
+		self.shape = (self.shape[0], arg)
+
 	def compile(self):
 		ret = Port(self.ast)
 		ret.set_dir(self.dir)
+		if self.shape[0]:
+			ret.set_count(self.shape[0].compile())
+		if self.shape[1]:
+			ret.set_width(self.shape[1].compile())
 		return ret
 
 	def is_inout(self):
@@ -751,7 +755,7 @@ class Port:
 		pass
 
 	def dim(self):
-		return ()
+		return self.shape
 
 	def resolve(self):
 		return self
@@ -770,11 +774,11 @@ class Port:
 	def replace_inout(self, parent):
 		pass
 
-	def get_port_name(self, name, filt, shape=(None, None)):
+	def get_port_name(self, name, filt):
 		if self.dir not in filt:
 			return []
 
-		count, width = shape
+		count, width = self.shape
 
 		ret = []
 		if count and count.to_int() > 1:
@@ -793,8 +797,8 @@ class Port:
 			ret += f'_{idx}'
 		return ret
 
-	def to_verilog(self, name, shape=(None, None)):
-		count, width = shape
+	def to_verilog(self, name):
+		count, width = self.shape
 
 		prefix = self.dir
 		if self.dir == 'output':
@@ -809,8 +813,8 @@ class Port:
 
 		return ret
 
-	def to_verilog_slice(self, name, dim, shape):
-		count, width = shape
+	def to_verilog_slice(self, name, dim=(None, None)):
+		count, width = self.shape
 
 		if count == None:
 			wi = dim[0]
@@ -826,11 +830,11 @@ class Port:
 			ret += f'[{wi.to_verilog()}]'
 		return ret
 
-	def to_verilog_inst_port(self, name, shape):
+	def to_verilog_inst_port(self, name):
 		if self.binding:
 			return ''
 
-		_, width = shape
+		_, width = self.shape
 
 		if self.dir == 'input':
 			prefix = 'reg '
@@ -855,14 +859,25 @@ class Net:
 		self.ast = ast
 		self.value = None
 		self.binded = False
+		self.shape = (None, None)
 
 	def set_value(self, arg):
 		self.value = arg
+
+	def set_count(self, arg):
+		self.shape = (arg, self.shape[1])
+
+	def set_width(self, arg):
+		self.shape = (self.shape[0], arg)
 
 	def compile(self):
 		ret = Net(self.ast)
 		if self.value:
 			ret.set_value(self.value.compile())
+		if self.shape[0]:
+			ret.set_count(self.shape[0].compile())
+		if self.shape[1]:
+			ret.set_width(self.shape[1].compile())
 		return ret
 
 	def resolve(self):
@@ -875,7 +890,7 @@ class Net:
 		self.binded = True
 
 	def dim(self):
-		return ()
+		return self.shape
 
 	def slice(self, hi, lo):
 		return None
@@ -883,8 +898,8 @@ class Net:
 	def operator(self, op, op2):
 		return None
 
-	def to_verilog(self, name, shape=(None, None)):
-		count, width = shape
+	def to_verilog(self, name):
+		count, width = self.shape
 
 		if self.value != None or self.binded:
 			ret = 'wire '
@@ -900,7 +915,7 @@ class Net:
 		ret += ';\n'
 		return ret
 
-	def to_verilog_slice(self, name, dim=(None, None), count=(None, None)):
+	def to_verilog_slice(self, name, dim=(None, None)):
 		ret = name
 		for i in dim:
 			if i:
@@ -913,15 +928,34 @@ class FSM:
 		self.ast = ast
 		self.state = {}
 		self.onehot = True
+		self.shape = (None, None)
+
+	def set_count(self, arg):
+		self.shape = (arg, self.shape[1])
 
 	def add_state(self, arg):
 		self.state[arg] = len(self.state)
 
+	def add_states(self, arg):
+		self.shape = (self.shape[0], Number(self.ast, len(arg)))
+		for i in arg:
+			self.add_state(i)
+
 	def compile(self):
-		return self
+		ret = FSM(self.ast)
+		if self.shape[0]:
+			ret.set_count(self.shape[0].compile())
+		ret.add_states(list(self.state.keys()))
+		return ret
+
+	def slice(self, hi, lo):
+		return None
 
 	def dim(self):
-		return (Number(self.ast, len(self.state)),)
+		return self.shape
+
+	def get_width(self):
+		return self.shape[1]
 
 	def _get_idx(self, field):
 		return 1 << self.state[field]
@@ -935,11 +969,13 @@ class FSM:
 
 		blk.add(ret)
 
+		"""
 		ret = Assign(src.ast)
 		ret.set_lhs(Hier(src.ast).set_namespace(src.namespace).set_field(Identifier(src.ast, f'#{src.field.name}')))
 		ret.set_rhs(String(src.ast, src.field.name))
 
 		blk.add(ret)
+		"""
 
 		return blk.compile()
 
@@ -955,19 +991,19 @@ class FSM:
 	def operator(self, op, op2):
 		return None
 
-	def to_verilog(self, name, dim=(None, None)):
+	def to_verilog(self, name):
 		ret = 'reg '
 		ret += f'[{len(self.state) - 1}:0] '
 		ret += name
-		if dim[0] and dim[0].to_int() > 1:
-			ret += f' [{dim[0].to_int() - 1}:0]'
+		if self.shape[0] and self.shape[0].to_int() > 1:
+			ret += f' [{self.shape[0].to_int() - 1}:0]'
 		ret += ';\n'
 
 		ret += 'reg '
 		ret += f'[{max([len(i) for i in self.state])} * 8 - 1:0] '
 		ret += f'str_{name}'
-		if dim[0] and dim[0].to_int() > 1:
-			ret += f' [{dim[0].to_int() - 1}:0]'
+		if self.shape[0] and self.shape[0].to_int() > 1:
+			ret += f' [{self.shape[0].to_int() - 1}:0]'
 		ret += ';\n'
 
 		return ret
@@ -977,72 +1013,12 @@ class FSM:
 			return f'str_{namespace.to_verilog()}'
 		return f'{namespace.to_verilog()}[{self.state[field.name]}]'
 
-	def to_verilog_slice(self, name, dim=(None, None), count=(None, None)):
-		return f'{name}[{dim[0].to_verilog()}]'
-
-class Array:
-	def __init__(self, ast):
-		self.ast = ast
-		self.shape = (None, None)
-		self.value = None
-		self.binded = False
-
-	def set_count(self, arg):
-		self.shape = (arg, self.shape[1])
-
-	def set_width(self, arg):
-		self.shape = (self.shape[0], arg)
-
-	def set_value(self, arg):
-		self.value = arg
-
-	def compile(self):
-		ret = Array(self.ast)
-		if self.shape[0]:
-			ret.set_count(self.shape[0].compile())
-		if self.shape[1]:
-			ret.set_width(self.shape[1].compile())
-		ret.set_value(self.value.compile())
+	def to_verilog_slice(self, name, dim=(None, None)):
+		ret = name
+		for i in dim:
+			if i:
+				ret += f'[{i.to_verilog()}]'
 		return ret
-
-	def set_binded(self):
-		self.value.set_binded()
-
-	def operator(self, op, op2):
-		return None
-
-	def resolve(self):
-		return self.value.resolve()
-
-	def resolve_hier(self, field):
-		return self.value.resolve_hier(field)
-
-	def slice(self, hi, lo):
-		return None
-
-	def dim(self):
-		return self.shape
-
-	def is_instance(self):
-		return self.value.is_instance()
-
-	def get_port_name(self, name, filt):
-		return self.value.get_port_name(name, filt, self.shape)
-
-	def to_verilog(self, name):
-		return self.value.to_verilog(name, self.shape)
-
-	def to_verilog_slice(self, name, dim):
-		return self.value.to_verilog_slice(name, dim, self.shape)
-
-	def to_verilog_hier(self, namespace, field):
-		return self.value.to_verilog_hier(namespace, field)
-
-	def to_verilog_inst_port(self, name):
-		return self.value.to_verilog_inst_port(name, self.shape)
-
-	def to_verilog_bind(self, name):
-		return self.value.to_verilog_bind(name)
 
 @for_all_methods(wrap)
 class Symbol:
@@ -1091,7 +1067,7 @@ class Symbol:
 
 		return ret
 
-	def to_verilog_slice(self, dim):
+	def to_verilog_slice(self, dim=(None, None)):
 		return self.value.to_verilog_slice(self.name, dim)
 
 	def to_verilog_bind(self, name):
@@ -1187,7 +1163,7 @@ def sh_number(ast, args):
 	return Number(ast, args[0].to_int(), args[1].to_int(), args[2].value)
 
 def sh_width(ast, args):
-	return dim_to_width(args[0].dim())
+	return args[0].get_width()
 
 system['z'] = sh_z
 system['goto'] = sh_goto
@@ -1427,6 +1403,11 @@ class Identifier:
 	def dim(self):
 		return self.ref.dim()
 
+	def get_width(self):
+		count, width = self.ref.dim()
+		assert count == None
+		return width
+
 	def resolve(self):
 		return self.ref
 
@@ -1445,7 +1426,7 @@ class Identifier:
 	def to_verilog_hier(self, namespace, field):
 		return self.ref.to_verilog_hier(namespace, field)
 
-	def to_verilog_slice(self, dim):
+	def to_verilog_slice(self, dim=(None, None)):
 		return self.ref.to_verilog_slice(self.name, dim)
 
 @for_all_methods(wrap)
@@ -1532,14 +1513,12 @@ class Number:
 		if value == 0:
 			return self
 
-		width = dim_to_width(self.dim()).to_int()
-
 		if hi < 0:
-			hi += width
+			hi += self.width
 		if lo < 0:
-			lo += width
+			lo += self.width
 
-		if width <= lo or hi < lo:
+		if self.width <= lo or hi < lo:
 			return Number(self.ast, 0)
 
 		return Number(self.ast, (value >> lo) & ((1 << (hi - lo + 1)) - 1))
@@ -1877,18 +1856,15 @@ class Assign:
 		self.lhs.replace_inout(parent)
 
 	def split_always_comb(self, parent, toplevel):
-		width = dim_to_width(self.lhs.dim())
+		width = self.lhs.get_width()
 		idx = parent.get_var_idx()
 
 		tpl = f'\{self.lhs.to_verilog()}\{idx}'.replace(' ', '')
 		name = f'{tpl} '
-		net = Net(self.ast)
-		if width.to_int() == 1:
-			sv = net
-		else:
-			sv = Array(self.ast)
-			sv.set_width(width)
-			sv.set_value(net)
+
+		sv = Net(self.ast)
+		sv.set_width(width)
+
 		symbol = Symbol(self.ast)
 		symbol.set_name(name)
 		symbol.set_value(sv)
@@ -1933,14 +1909,11 @@ class Assign:
 
 			net_sens = Net(self.ast)
 			net_sens.set_value(self.rhs)
-
-			arr_sens = Array(self.ast)
-			arr_sens.set_width(dim_to_width(self.lhs.dim()))
-			arr_sens.set_value(net_sens)
+			net_sens.set_width(self.lhs.get_width())
 
 			symbol_sens = Symbol(self.ast)
 			symbol_sens.set_name(name_sens)
-			symbol_sens.set_value(arr_sens)
+			symbol_sens.set_value(net_sens)
 
 			parent.add_hidden_local(symbol_sens)
 
@@ -2006,11 +1979,15 @@ class Bus:
 			ret.add(i.compile())
 		return ret
 
-	def dim(self):
+	def get_width(self):
 		ret = 0
 		for i in self.item:
-			ret += dim_to_width(i.dim()).to_int()
-		return (Number(self.ast, ret),)
+			w = i.get_width()
+			if w == None:
+				ret += 1
+			else:
+				ret += i.get_width().to_int()
+		return Number(self.ast, ret)
 
 	def clone(self):
 		ret = Bus(self.ast)
@@ -2201,6 +2178,11 @@ class Hier:
 	def dim(self):
 		return self.ref.dim()
 
+	def get_width(self):
+		count, width = self.ref.dim()
+		assert count == None
+		return width
+
 	def slice(self, hi, lo):
 		return self.ref.slice(hi, lo)
 
@@ -2210,7 +2192,7 @@ class Hier:
 	def to_verilog(self):
 		return self.namespace.resolve().to_verilog_hier(self.namespace, self.field)
 
-	def to_verilog_slice(self, dim):
+	def to_verilog_slice(self, dim=(None, None)):
 		return self.ref.to_verilog_slice(self.namespace.resolve().to_verilog_hier(self.namespace, self.field), dim)
 
 @for_all_methods(wrap)
@@ -2294,6 +2276,9 @@ class Range:
 	def set_lo(self, i):
 		self.lo = i
 		return self
+
+	def get_width(self):
+		return Number(self.ast, self.hi.to_int() - self.lo.to_int() + 1)
 
 	def set_hi_bin(self, i):
 		ret = Binary(self.ast)
@@ -2470,7 +2455,21 @@ class Slice:
 		self.hilo = arg
 
 	def dim(self):
-		return self.value.dim()[1:]
+		dim = self.value.dim()
+		if len(dim) == 2:
+			count, width = dim
+			if count == None:
+				return ()
+			return dim[1:]
+		return ()
+
+	def get_width(self):
+		dim = self.dim()
+		if len(dim) > 0:
+			return dim[0]
+		if type(self.hilo) == Range:
+			return self.hilo.get_width()
+		return Number(self.ast, 1)
 
 	def clone(self):
 		ret = Slice(self.ast)
@@ -2541,7 +2540,7 @@ class Slice:
 		return self.value.is_inout()
 
 	def operator(self, op, op2):
-		return self.resolve().operator(op, op2)
+		return None
 
 	def resolve(self):
 		return self.value.resolve()
@@ -2578,9 +2577,13 @@ class Instance:
 		self.name = None
 		self.param = Scope()
 		self.inst = None
+		self.shape = (None, None)
 
 	def set_name(self, arg):
 		self.name = arg
+
+	def set_count(self, arg):
+		self.shape = (arg, self.shape[1])
 
 	def add_param(self, arg):
 		self.param.add(arg)
@@ -2590,6 +2593,8 @@ class Instance:
 		ret.set_name(self.name)
 		ret.param = self.param
 		ret.inst = SCOPE.lookup(self.name).value.compile(param=self.param)
+		if self.shape[0]:
+			ret.set_count(self.shape[0].compile())
 		return ret
 
 	def resolve(self):
@@ -2599,7 +2604,10 @@ class Instance:
 		return self.inst.scope.lookup(field.name).value
 
 	def dim(self):
-		return ()
+		return self.shape
+
+	def slice(self, hi, lo):
+		return None
 
 	def is_instance(self):
 		return True
@@ -2635,8 +2643,8 @@ class Instance:
 
 		return ret
 
-	def to_verilog(self, name, dim=(None, None)):
-		count, _ = dim
+	def to_verilog(self, name):
+		count, _ = self.shape
 
 		m = self.inst
 
@@ -2667,7 +2675,7 @@ class Instance:
 	def to_verilog_hier(self, namespace, field):
 		return f'{namespace.to_verilog()}__{field.name}'
 
-	def to_verilog_slice(self, name, dim=(None, None), count=(None, None)):
+	def to_verilog_slice(self, name, dim=(None, None)):
 		ret = name
 		if dim[0]:
 			ret += f'_{dim[0].to_verilog()}'
@@ -2739,7 +2747,7 @@ class Field:
 		ret += '];\n'
 		return ret
 
-	def to_verilog_slice(self, name, dim):
+	def to_verilog_slice(self, name, dim=(None, None)):
 		return f'{name}[{dim[0].to_verilog()}]'
 
 @for_all_methods(wrap)
@@ -2803,7 +2811,7 @@ class Reg:
 		return None
 
 	def dim(self):
-		return (Number(self.ast, self._get_bytes() * 8),)
+		return (None, Number(self.ast, self._get_bytes() * 8))
 
 	def operator(self, op, op2):
 		return None
@@ -2820,7 +2828,7 @@ class Reg:
 	def to_verilog_hier(self, namespace, field):
 		return f'{namespace.to_verilog()}__{field.name}'
 
-	def to_verilog_slice(self, name, dim):
+	def to_verilog_slice(self, name, dim=(None, None)):
 		return f'{name}[{dim[0].to_verilog()}]'
 
 @for_all_methods(wrap)
@@ -2838,7 +2846,7 @@ class Regs:
 	def resolve_hier(self, field):
 		return self.scope.lookup(field.name)
 
-	def to_verilog(self, name, shape):
+	def to_verilog(self, name):
 		ret = Formatter()
 		for i in self.scope.scope:
 			ret += self.scope.lookup(i).to_verilog(f'{name}__{i}')
@@ -2933,31 +2941,22 @@ class Top:
 			i = stack.pop()
 			stack.last.set_value(i)
 
-	def array_create(stack, ast, delta):
-		if delta > 0:
-			stack.push(Array(ast))
-
-	def array_set_count(stack, ast, delta):
+	def set_count(stack, ast, delta):
 		if delta < 0:
 			i = stack.pop()
 			stack.last.set_count(i)
 
-	def array_set_width(stack, ast, delta):
+	def set_width(stack, ast, delta):
 		if delta < 0:
 			i = stack.pop()
 			stack.last.set_width(i)
 
-	def array_set_width2(stack, ast, delta):
+	def set_width2(stack, ast, delta):
 		if delta < 0:
 			i = stack.pop()
 			t = stack.pop()
 			stack.last.set_width(i)
 			stack.push(t)
-
-	def array_set_value(stack, ast, delta):
-		if delta < 0:
-			i = stack.pop()
-			stack.last.set_value(i)
 
 	def resolver_create(stack, ast, delta):
 		stack.push(Resolver(ast, Identifier(ast, LOP.LOP_symbol_value(ast).decode())))
@@ -3149,7 +3148,7 @@ class ParseInterface:
 
 @parser("""
 interface_port_decl:
-	oneof: @interface_instance_create
+	oneof:
 		$interface_hier
 		call:
 			$interface_hier
@@ -3279,23 +3278,26 @@ port:
 	oneof: @symbol_create
 		tree: @symbol_set_value
 			identifier: @symbol_set_name
-			oneof: @array_create
-				$inout
-				$interface_port_decl: @array_set_value
+			oneof:
+				$inout: @port_create
+				$interface_port_decl: @interface_instance_create
 		tree: @symbol_set_value
 			aref:
 				identifier: @symbol_set_name
-				$expr: @array_create, @array_set_count
-			oneof:
-				$inout
-				$interface_port_decl: @array_set_value
+				$expr: @port_create, @set_count
+			$inout
+		tree: @symbol_set_value
+			aref:
+				identifier: @symbol_set_name
+				$expr: @interface_instance_create, @set_count
+			$interface_port_decl
 
 inout:
 	oneof:
-		$direction: @port_create, @array_set_value
+		$direction
 		aref:
-			$direction: @port_create, @array_set_value
-			$expr: @array_set_width
+			$direction
+			$expr: @set_width
 
 direction:
 	oneof: @port_set_dir
@@ -3320,17 +3322,17 @@ local:
 	oneof: @symbol_create
 		tree: @symbol_set_value
 			identifier: @symbol_set_name
-			oneof: @array_create
-				$net_simple: @net_create, @array_set_value
-				$net_with_width: @net_create, @array_set_value
-				$net_with_value: @net_create, @array_set_value
+			oneof:
+				$net_simple: @net_create
+				$net_with_width: @net_create
+				$net_with_value: @net_create
 		tree: @symbol_set_value
 			aref:
 				identifier: @symbol_set_name
-				$expr: @array_create, @array_set_count
+				$expr: @net_create, @set_count
 			oneof:
-				$net_simple: @net_create, @array_set_value
-				$net_with_width: @net_create, @array_set_value
+				$net_simple
+				$net_with_width
 """)
 class ParseLocal:
 	pass
@@ -3340,17 +3342,15 @@ instance_decl:
 	oneof: @symbol_create
 		tree: @symbol_set_value
 			identifier: @symbol_set_name
-			oneof: @array_create
-				$instance: @array_set_value
+			$instance: @instance_create
 		tree: @symbol_set_value
 			aref:
 				identifier: @symbol_set_name
-				$expr: @array_create, @array_set_count
-			oneof:
-				$instance: @array_set_value
+				$expr: @instance_create, @set_count
+			$instance
 
 instance:
-	oneof: @instance_create
+	oneof:
 		identifier: @instance_set_name
 		call:
 			identifier: @instance_set_name
@@ -3380,7 +3380,7 @@ net_simple:
 net_with_width:
 	aref:
 		$net_simple
-		$expr: @array_set_width2
+		$expr: @set_width
 
 net_with_value:
 	oneof:
@@ -3408,17 +3408,15 @@ fsm_decl:
 	oneof: @symbol_create
 		tree: @symbol_set_value
 			identifier: @symbol_set_name
-			oneof: @array_create
-				$fsm: @array_set_value
+			$fsm: @fsm_create
 		tree: @symbol_set_value
 			aref:
 				identifier: @symbol_set_name
-				$expr: @array_create, @array_set_count
-			oneof:
-				$fsm: @array_set_value
+				$expr: @fsm_create, @set_count
+			$fsm
 
 fsm:
-	listof: @fsm_create
+	listof: @fsm_add_states
 		identifier: @fsm_add_state
 """)
 class ParseFSM:
@@ -3426,8 +3424,15 @@ class ParseFSM:
 		if delta > 0:
 			stack.push(FSM(ast))
 
+	def fsm_add_states(stack, ast, delta):
+		if delta > 0:
+			stack.push([])
+		else:
+			i = stack.pop()
+			stack.last.add_states(i)
+
 	def fsm_add_state(stack, ast, delta):
-		stack.last.add_state(LOP.LOP_symbol_value(ast).decode())
+		stack.last.append(LOP.LOP_symbol_value(ast).decode())
 
 @parser("""
 regs_def:
@@ -3473,16 +3478,7 @@ regs_decl:
 	oneof: @symbol_create
 		tree: @symbol_set_value
 			identifier: @symbol_set_name
-			oneof: @array_create
-				oneof: @array_set_value
-					identifier: @resolver_create
-		tree: @symbol_set_value
-			aref:
-				identifier: @symbol_set_name
-				$expr: @array_create, @array_set_count
-			oneof:
-				oneof: @array_set_value
-					identifier: @resolver_create
+			identifier: @resolver_create
 """)
 class ParseRegs:
 	def regs_create(stack, ast, delta):

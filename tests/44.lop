@@ -1,0 +1,22 @@
+module: test
+	fsm:
+		d:
+			A
+			B
+			C
+		f[2]:
+			A
+			B
+			C
+
+	d = 0
+	f[0] = 0
+
+	d[1] = 1
+	f[1][2] = 1
+
+	$goto(d.C)
+	$goto(f[0].B)
+
+	\\ FIXME This is possible...
+	\\$goto(f[0][1].B)

@@ -143,3 +143,5 @@ module: test
 	dummy = $regaddr($fieldreg(regs.c.rcs))
 	dummy = $fieldlo(regs.c.rcs)
 	dummy = $fieldhi(regs.c.rcs)
+
+	$regcast(regs.d.rcs) = 0
