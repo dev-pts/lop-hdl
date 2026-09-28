@@ -5,6 +5,7 @@ module test(
 );
 	localparam A = 1;
 	reg d;
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \b\0 ;
 	wire \b\0_sens  = 1;
@@ -13,6 +14,7 @@ module test(
 	reg \b\2 ;
 	reg \b\2_we ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\b\1  = 0;
 		\b\1_we  = 0;

@@ -9,6 +9,7 @@ module test();
 	SubModule c(
 		.y(c__y)
 	);
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \c__y[0]\0 ;
 	wire \c__y[0]\0_sens  = 1;
@@ -31,6 +32,7 @@ module test();
 	reg \c__y[0]\9 ;
 	wire \c__y[0]\9_sens  = 3;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\c__y[0]\0  = \c__y[0]\0_sens ;
 		\c__y[1]\1  = \c__y[1]\1_sens ;

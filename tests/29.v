@@ -27,6 +27,7 @@ module test();
 	wire [7:0] regs__d__w = regs__d[23:16];
 	wire [7:0] regs__d__cr = regs__d[15:8];
 	wire [7:0] regs__d__r = regs__d[7:0];
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \dummy\0 ;
 	wire \dummy\0_sens  = 'h0;
@@ -340,6 +341,7 @@ module test();
 	reg [7:0] \regs__d[63:56]\229 ;
 	wire [7:0] \regs__d[63:56]\229_sens  = 0;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\dummy\0  = \dummy\0_sens ;
 		\dummy\1  = \dummy\1_sens ;

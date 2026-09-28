@@ -1,5 +1,6 @@
 module test();
 	reg [31:0] a;
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \a[0]\0 ;
 	wire \a[0]\0_sens  = 0;
@@ -228,6 +229,7 @@ module test();
 	reg [7:0] \a[7:0]\112 ;
 	wire [7:0] \a[7:0]\112_sens  = 24;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\a[0]\0  = \a[0]\0_sens ;
 		\a[1]\1  = \a[1]\1_sens ;

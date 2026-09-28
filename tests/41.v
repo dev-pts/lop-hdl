@@ -3,6 +3,7 @@ module test();
 	reg b;
 	reg [1:0] c;
 	reg d [1:0];
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg [2:0] \a\0 ;
 	wire [2:0] \a\0_sens  = 0;
@@ -10,6 +11,7 @@ module test();
 	reg \{a,c}\1_we ;
 	reg \d[1]\2 ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\{a,c}\1  = 0;
 		\{a,c}\1_we  = 0;

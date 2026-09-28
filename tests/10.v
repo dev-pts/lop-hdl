@@ -4,10 +4,12 @@ module SubModule(
 	input wire z,
 	output reg y
 );
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \y\0 ;
 	wire \y\0_sens  = 1;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\y\0  = \y\0_sens ;
 	end
@@ -33,32 +35,42 @@ module test(
 		.y(b__y)
 	);
 	reg [2:0] d;
-	reg [1 * 8 - 1:0] str_d;
 	reg [2:0] f [1:0];
-	reg [1 * 8 - 1:0] str_f [1:0];
+	/* generated locals */
+	reg [7:0] str_d;
+	reg [7:0] str_f [1:0];
+	/* ---------------- */
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg [2:0] \d\0 ;
 	wire [2:0] \d\0_sens  = 4;
-	reg [2:0] \f[0]\1 ;
-	wire [2:0] \f[0]\1_sens  = 2;
-	reg \b__z\2 ;
-	wire \b__z\2_sens  = 16;
-	reg \c\3 ;
-	reg \c\4 ;
+	reg [7:0] \str_d\1 ;
+	reg [2:0] \f[0]\2 ;
+	wire [2:0] \f[0]\2_sens  = 2;
+	reg [7:0] \str_f[0]\3 ;
+	reg \b__z\4 ;
+	wire \b__z\4_sens  = 16;
+	reg \c\5 ;
+	reg \c\6 ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\d\0  = \d\0_sens ;
-		\f[0]\1  = \f[0]\1_sens ;
-		\b__z\2  = \b__z\2_sens ;
-		\c\3  = d[2];
-		\c\4  = f[0][2];
+		\str_d\1  = "C";
+		\f[0]\2  = \f[0]\2_sens ;
+		\str_f[0]\3  = "B";
+		\b__z\4  = \b__z\4_sens ;
+		\c\5  = d[2];
+		\c\6  = f[0][2];
 	end
 	always @(*) begin
 		d = \d\0 ;
-		f[0] = \f[0]\1 ;
-		b__z = \b__z\2 ;
-		c = \c\3 ;
-		c = \c\4 ;
+		str_d = \str_d\1 ;
+		f[0] = \f[0]\2 ;
+		str_f[0] = \str_f[0]\3 ;
+		b__z = \b__z\4 ;
+		c = \c\5 ;
+		c = \c\6 ;
 	end
 endmodule
 

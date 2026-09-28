@@ -20,6 +20,7 @@ module test(
 	SubModule d(
 		.a(f_1)
 	);
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \a\0 ;
 	wire \a\0_sens  = 1;
@@ -37,6 +38,7 @@ module test(
 	reg [2:0] _auto_c_1__a__a;
 	reg [3:0] _auto_f_0;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\a\0  = \a\0_sens ;
 		\{a,e,c_0__a__a}\1  = \{a,e,c_0__a__a}\1_sens ;

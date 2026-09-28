@@ -133,6 +133,7 @@ module test(
 		.j_0(e_1__j_0),
 		.j_1(e_1__j_1)
 	);
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \a__a\0 ;
 	reg \c_0__b[0]\1 ;
@@ -158,6 +159,7 @@ module test(
 	reg [1:0] \e_0__g_0__b\21 ;
 	reg \e_1__h_1__a\22 ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\a__a\0  = a__b[0];
 		\c_0__b[0]\1  = b__a;

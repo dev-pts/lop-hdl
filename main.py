@@ -138,6 +138,12 @@ class Scope:
 			return
 		raise Exception(name)
 
+	def search(self, value):
+		for k, v in self.scope.items():
+			if v.value == value:
+				return k
+		return None
+
 class GlobalScope:
 	def __init__(self):
 		self.stack = []
@@ -587,6 +593,9 @@ class Module:
 		if type(arg) != Empty:
 			self.assign.append(arg)
 
+	def get_name(self, arg):
+		return self.scope.search(arg)
+
 	def fix_inout(self, src, ref):
 		name = f'_auto_{src.to_verilog()}'
 		if SCOPE.lookup_try(name) != None:
@@ -684,11 +693,19 @@ class Module:
 		for i in self.local:
 			ret += i.value.to_verilog(i.name)
 
+		if self.generated_local:
+			ret += '/* generated locals */\n'
+			for i in self.generated_local:
+				ret += i.value.to_verilog(i.name)
+			ret += '/* ---------------- */\n'
+
 		if self.hidden_local:
+			ret += '/* hidden locals */\n'
 			ret += '/*verilator tracing_off*/\n'
 			for i in self.hidden_local:
 				ret += i.value.to_verilog(i.name)
 			ret += '/*verilator tracing_on*/\n'
+			ret += '/* ---------------- */\n'
 
 		if self.initial:
 			ret += 'initial begin\n'
@@ -934,6 +951,7 @@ class FSM:
 		self.state = {}
 		self.onehot = True
 		self.shape = (None, None)
+		self._name = None
 
 	def set_count(self, arg):
 		self.shape = (arg, self.shape[1])
@@ -951,6 +969,19 @@ class FSM:
 		if self.shape[0]:
 			ret.set_count(self.shape[0].compile(parent))
 		ret.add_states(list(self.state.keys()))
+
+		ret._name = f'str_{parent.get_name(self)}'
+
+		netstr = Net(self.ast)
+		netstr.set_width(Number(self.ast, max([len(i) for i in self.state]) * 8))
+		netstr.set_count(self.shape[0])
+
+		symbol = Symbol(self.ast)
+		symbol.set_name(ret._name)
+		symbol.set_value(netstr)
+
+		parent.add_generated_local(symbol)
+
 		return ret
 
 	def slice(self, hi, lo):
@@ -974,13 +1005,25 @@ class FSM:
 
 		blk.add(ret)
 
-		"""
+		tmp = src.namespace.clone()
+
+		cursor = tmp
+		while True:
+			if type(cursor) == Slice:
+				cursor = cursor.value
+				continue
+			if type(cursor) == Hier:
+				cursor.name = self._name
+				break
+			if type(cursor) == Identifier:
+				cursor.name = self._name
+				break
+
 		ret = Assign(src.ast)
-		ret.set_lhs(Hier(src.ast).set_namespace(src.namespace).set_field(Identifier(src.ast, f'#{src.field.name}')))
+		ret.set_lhs(tmp)
 		ret.set_rhs(String(src.ast, src.field.name))
 
 		blk.add(ret)
-		"""
 
 		return blk.compile(parent)
 
@@ -1003,19 +1046,9 @@ class FSM:
 		if self.shape[0] and self.shape[0].to_int() > 1:
 			ret += f' [{self.shape[0].to_int() - 1}:0]'
 		ret += ';\n'
-
-		ret += 'reg '
-		ret += f'[{max([len(i) for i in self.state])} * 8 - 1:0] '
-		ret += f'str_{name}'
-		if self.shape[0] and self.shape[0].to_int() > 1:
-			ret += f' [{self.shape[0].to_int() - 1}:0]'
-		ret += ';\n'
-
 		return ret
 
 	def to_verilog_hier(self, namespace, field):
-		if '#' in field.name:
-			return f'str_{namespace.to_verilog()}'
 		return f'{namespace.to_verilog()}[{self.state[field.name]}]'
 
 	def to_verilog_slice(self, name, dim=(None, None)):

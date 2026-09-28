@@ -4,10 +4,12 @@ module SubModule(
 	input wire [1:0] z,
 	output reg [2:0] y
 );
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg [2:0] \y\0 ;
 	wire [2:0] \y\0_sens  = 1;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\y\0  = \y\0_sens ;
 	end
@@ -30,10 +32,12 @@ module test();
 		.y(b__y)
 	);
 	reg [1:0] k;
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \k[0]\0 ;
 	wire \k[0]\0_sens  = 2;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\k[0]\0  = \k[0]\0_sens ;
 	end

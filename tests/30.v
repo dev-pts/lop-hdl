@@ -3,9 +3,11 @@ module test();
 	reg [7:0] mem [255:0];
 	reg dummy;
 	reg dummy2;
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \dummy\0 ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	initial begin
 		$readmemh("mem.hex", mem);
 	end

@@ -3,10 +3,12 @@ module test(
 	output reg d__a__b,
 	output reg e__a__b
 );
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \c__a__b\0 ;
 	reg \c__a__b\1 ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\c__a__b\0  = d__a__b;
 		\c__a__b\1  = e__a__b;

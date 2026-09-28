@@ -8,6 +8,7 @@ module test(
 	input wire c_1__a,
 	output reg [1:0] c_1__b
 );
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \a__a\0 ;
 	reg [1:0] \b__b\1 ;
@@ -15,6 +16,7 @@ module test(
 	reg [1:0] \b__b\3 ;
 	reg [1:0] \b__b\4 ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\a__a\0  = a__b[0];
 		\b__b\1  = c_0__b[0];

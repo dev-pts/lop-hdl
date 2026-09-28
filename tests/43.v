@@ -4,6 +4,7 @@ module test(
 	reg [7:0] regs__push;
 	reg [7:0] regs__full;
 	reg [7:0] regs__pop;
+	/* hidden locals */
 	/*verilator tracing_off*/
 	reg [31:0] \bus__addr\0 ;
 	reg \bus__addr\0_we ;
@@ -18,6 +19,7 @@ module test(
 	reg [31:0] \bus__addr\5 ;
 	reg \bus__addr\5_we ;
 	/*verilator tracing_on*/
+	/* ---------------- */
 	always @(*) begin
 		\bus__addr\0  = 0;
 		\bus__addr\0_we  = 0;
