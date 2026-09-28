@@ -36,13 +36,16 @@ module test();
 	/*verilator tracing_off*/
 	reg \k[0]\0 ;
 	wire \k[0]\0_sens  = 2;
+	reg [1:0] \k\1 ;
 	/*verilator tracing_on*/
 	/* ---------------- */
 	always @(*) begin
 		\k[0]\0  = \k[0]\0_sens ;
+		\k\1  = 1'bz;
 	end
 	always @(*) begin
 		k[0] = \k[0]\0 ;
+		k = \k\1 ;
 	end
 endmodule
 

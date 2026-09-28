@@ -7,6 +7,7 @@ module: test:
 	local:
 		d: net
 
+	b = $z
 	b = 1
 
 	ff: +a

@@ -7,6 +7,7 @@ module: test:
 		k: net[2]
 
 	k[0] = 2
+	k = $z
 
 module: SubModule
 	port:

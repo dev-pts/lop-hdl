@@ -1129,6 +1129,9 @@ class Z:
 	def __init__(self, ast):
 		self.ast = ast
 
+	def compile(self, parent):
+		return self
+
 	def to_verilog(self):
 		return "1'bz"
 

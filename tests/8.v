@@ -8,14 +8,17 @@ module test(
 	/* hidden locals */
 	/*verilator tracing_off*/
 	reg \b\0 ;
-	wire \b\0_sens  = 1;
+	reg \b\1 ;
+	wire \b\1_sens  = 1;
 	/*verilator tracing_on*/
 	/* ---------------- */
 	always @(*) begin
-		\b\0  = \b\0_sens ;
+		\b\0  = 1'bz;
+		\b\1  = \b\1_sens ;
 	end
 	always @(*) begin
 		b = \b\0 ;
+		b = \b\1 ;
 	end
 	always @(posedge a) begin
 		d <= 1;
