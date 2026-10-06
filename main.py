@@ -2171,6 +2171,8 @@ class Hier:
 		ret.set_namespace(self.namespace.compile(parent))
 		ret.set_field(self.field)
 		ret.ref = ret.namespace.resolve().resolve_hier(self.field)
+		if type(ret.ref) in [Number, String]:
+			return ret.ref
 		return ret
 
 	def clone(self):
